@@ -1,0 +1,17 @@
+{
+  "name": "han-ngu-so-cap",
+  "version": "1.0.0",
+  "description": "Web học tiếng Hàn sơ cấp cho người Việt: lộ trình, luyện tập, ôn tập ngắt quãng, thi thử, quản trị.",
+  "main": "server/index.js",
+  "private": true,
+  "scripts": {
+    "start": "node server/index.js",
+    "reset": "node -e \"require('fs').rmSync('data',{recursive:true,force:true})\" && node -e \"require('./server/seed/seed').run()\"",
+    "test": "node tests/api.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "better-sqlite3": "11.7.0",
+    "express": "4.21.2"
+  }
+}

@@ -1,0 +1,453 @@
+// HỌC LIỆU KHỞI TẠO
+// Phạm vi kiến thức bám theo lộ trình bộ "Tiếng Hàn tổng hợp dành cho người Việt Nam – Sơ cấp 1, 2".
+// Toàn bộ câu ví dụ, giải thích và câu hỏi dưới đây được biên soạn mới.
+
+const LEVELS = [
+  { code: 'intro', name: 'Nhập môn', description: 'Làm quen chữ Hangeul và quy tắc phát âm cơ bản.', goal: 'Đọc và viết được mọi âm tiết tiếng Hàn, nắm 7 âm patchim và quy tắc nối âm.' },
+  { code: 'sc1', name: 'Sơ cấp 1', description: 'Giao tiếp tối thiểu: chào hỏi, trường học, sinh hoạt, ngày tháng, mua sắm, ăn uống, gia đình, thời tiết.', goal: 'Tự giới thiệu, nói về sinh hoạt hằng ngày ở thì hiện tại và quá khứ, mua hàng và gọi món đơn giản.' },
+  { code: 'sc2', name: 'Sơ cấp 2', description: 'Mở rộng: hẹn gặp, bệnh viện, giao thông, kế hoạch, nơi công cộng.', goal: 'Nối câu, diễn đạt nghĩa vụ – cho phép – cấm đoán, nói chuyện trong các tình huống đời sống ở Hàn Quốc.' },
+];
+
+// grp: hangul | vocab | grammar | listening | reading | writing
+const TOPICS = [
+  { code: 'H-VOW', level: 'intro', grp: 'hangul', name: 'Nguyên âm', description: '10 nguyên âm cơ bản và 11 nguyên âm ghép.', source: 'Tiếng Hàn và chữ Hangeul', rules: { mastered_min_accuracy: 0.9 } },
+  { code: 'H-CON', level: 'intro', grp: 'hangul', name: 'Phụ âm', description: '14 phụ âm đơn, 5 phụ âm căng; âm thường – bật hơi – căng.', source: 'Tiếng Hàn và chữ Hangeul', rules: { mastered_min_accuracy: 0.9 } },
+  { code: 'H-BAT', level: 'intro', grp: 'hangul', name: 'Patchim và nối âm', description: '7 âm đại diện của patchim, quy tắc nối âm.', source: 'Tiếng Hàn và chữ Hangeul' },
+
+  { code: 'V-INTRO', level: 'sc1', grp: 'vocab', name: 'Quốc gia, nghề nghiệp, lời chào', description: 'Từ vựng để tự giới thiệu.', source: 'SC1 Bài 1 · 소개' },
+  { code: 'V-SCHOOL', level: 'sc1', grp: 'vocab', name: 'Trường học và đồ vật', description: 'Nơi chốn trong trường, đồ dùng học tập.', source: 'SC1 Bài 2 · 학교' },
+  { code: 'V-DAILY', level: 'sc1', grp: 'vocab', name: 'Sinh hoạt hằng ngày', description: 'Động từ, tính từ và danh từ thường dùng mỗi ngày.', source: 'SC1 Bài 3, 5' },
+  { code: 'V-DATE', level: 'sc1', grp: 'vocab', name: 'Số, ngày, thứ, thời gian', description: 'Số Hán Hàn và thuần Hàn, các thứ trong tuần, giờ.', source: 'SC1 Bài 4, 5' },
+  { code: 'V-FOOD', level: 'sc1', grp: 'vocab', name: 'Mua sắm và món ăn', description: 'Hỏi giá, đơn vị đếm, món ăn Hàn Quốc.', source: 'SC1 Bài 7, 8' },
+  { code: 'V-FAMILY', level: 'sc1', grp: 'vocab', name: 'Gia đình và thời tiết', description: 'Xưng hô trong gia đình, bốn mùa, thời tiết.', source: 'SC1 Bài 10, 11' },
+
+  { code: 'G-COPULA', level: 'sc1', grp: 'grammar', name: 'Cấu trúc 입니다 · 이에요/예요', description: '“Là …” ở hai mức lịch sự: trang trọng và thân mật.', source: 'SC1 Bài 1, 5' },
+  { code: 'G-TOPIC', level: 'sc1', grp: 'grammar', name: 'Tiểu từ 은/는 và 이/가', description: 'Trợ từ chủ đề và trợ từ chủ ngữ.', source: 'SC1 Bài 1, 2' },
+  { code: 'G-OBJ', level: 'sc1', grp: 'grammar', name: 'Tiểu từ 을/를', description: 'Đánh dấu tân ngữ của động từ.', source: 'SC1 Bài 3' },
+  { code: 'G-LOC', level: 'sc1', grp: 'grammar', name: 'Tiểu từ 에 và 에서', description: 'Vị trí, nơi đến, thời gian và nơi diễn ra hành động.', source: 'SC1 Bài 2, 3, 4, 5' },
+  { code: 'G-FORMAL', level: 'sc1', grp: 'grammar', name: 'Đuôi câu trang trọng -ㅂ/습니다', description: 'Câu trần thuật và nghi vấn kính ngữ trang trọng.', source: 'SC1 Bài 3' },
+  { code: 'G-POLITE', level: 'sc1', grp: 'grammar', name: 'Đuôi câu hiện tại lịch sự -아/어요', description: 'Đuôi câu dùng nhiều nhất trong hội thoại hằng ngày.', source: 'SC1 Bài 5' },
+  { code: 'G-NEG', level: 'sc1', grp: 'grammar', name: 'Câu phủ định cơ bản', description: '안, -지 않다 và 이/가 아니다.', source: 'SC1 Bài 2, 5, 8' },
+  { code: 'G-PAST', level: 'sc1', grp: 'grammar', name: 'Thì quá khứ -았/었-', description: 'Kể lại việc đã làm.', source: 'SC1 Bài 6' },
+  { code: 'G-WANT', level: 'sc1', grp: 'grammar', name: '-고 싶다 · -(으)세요 · -(으)ㅂ시다', description: 'Mong muốn, yêu cầu lịch sự, rủ rê.', source: 'SC1 Bài 6, 7, 8' },
+  { code: 'L-SC1', level: 'sc1', grp: 'listening', name: 'Nghe từ và câu ngắn', description: 'Nghe nhận biết từ vựng và câu giao tiếp Sơ cấp 1.', source: 'SC1 · phần 듣기' },
+  { code: 'R-SC1', level: 'sc1', grp: 'reading', name: 'Đọc hiểu đoạn văn ngắn', description: 'Đọc giới thiệu bản thân, lịch sinh hoạt, hội thoại mua hàng.', source: 'SC1 · phần 읽기' },
+  { code: 'W-SC1', level: 'sc1', grp: 'writing', name: 'Viết câu theo yêu cầu', description: 'Viết câu giới thiệu, kể sinh hoạt, gọi món.', source: 'SC1 · phần 쓰기' },
+
+  { code: 'V-HEALTH', level: 'sc2', grp: 'vocab', name: 'Cơ thể và bệnh viện', description: 'Bộ phận cơ thể, triệu chứng, bệnh viện – hiệu thuốc.', source: 'SC2 Bài 4 · 병원' },
+  { code: 'G-MUST', level: 'sc2', grp: 'grammar', name: 'Bắt buộc · cho phép · cấm đoán', description: '-아/어야 하다, -아/어도 되다, -(으)면 안 되다.', source: 'SC2 Bài 2, 4, 12' },
+  { code: 'G-CONN', level: 'sc2', grp: 'grammar', name: 'Nối câu: -고, -지만, -(으)면, -(으)ㄹ 때', description: 'Liệt kê, đối lập, điều kiện, thời điểm.', source: 'SC1 Bài 11–12, SC2 Bài 1, 5' },
+];
+
+/* ------------------------------ BÀI HỌC (kiến thức cần nhớ) ------------------------------ */
+const LESSONS = {
+  'H-VOW': { title: 'Nguyên âm tiếng Hàn', goal: 'Nhận mặt và đọc đúng 21 nguyên âm.',
+    body: { explain: 'Nguyên âm được tạo từ ba nét cơ bản: chấm/gạch ngắn (trời), gạch ngang ㅡ (đất) và gạch đứng ㅣ (người). Khi viết thành âm tiết mà không có phụ âm đầu, phải thêm ㅇ câm phía trước: 아, 어, 오…',
+      formula: 'ㅇ (câm) + nguyên âm → 아, 야, 어, 여, 오, 요, 우, 유, 으, 이',
+      examples: [['아이', 'em bé'], ['오이', 'dưa chuột'], ['우유', 'sữa'], ['여우', 'con cáo'], ['예의', 'lễ nghĩa']],
+      mistakes: ['Đọc ㅓ thành “o”: ㅓ gần âm “ơ”, còn ㅗ mới là “ô”.', 'Nhầm ㅐ và ㅔ: trong tiếng Hàn hiện đại hai âm này gần như giống nhau, cần nhớ mặt chữ theo từ.'],
+      compare: 'ㅗ (ô, tròn môi) ↔ ㅓ (ơ, không tròn môi) · ㅜ (u) ↔ ㅡ (ư)' } },
+  'H-CON': { title: 'Phụ âm tiếng Hàn', goal: 'Đọc đúng phụ âm và phân biệt âm thường – bật hơi – căng.',
+    body: { explain: 'Phụ âm cơ bản mô phỏng vị trí lưỡi và môi khi phát âm. Thêm nét vào phụ âm cơ bản tạo ra âm bật hơi (ㅋ ㅌ ㅍ ㅊ); viết đôi tạo ra âm căng (ㄲ ㄸ ㅃ ㅆ ㅉ).',
+      formula: 'Âm thường ㄱ ㄷ ㅂ ㅈ · Âm bật hơi ㅋ ㅌ ㅍ ㅊ · Âm căng ㄲ ㄸ ㅃ ㅉ ㅆ',
+      examples: [['가 / 카 / 까', 'ga / kha / kka'], ['다 / 타 / 따', 'da / tha / tta'], ['바 / 파 / 빠', 'ba / pha / ppa'], ['자 / 차 / 짜', 'ja / cha / jja']],
+      mistakes: ['ㅇ ở đầu âm tiết không đọc; ở cuối âm tiết đọc là “ng”.', 'ㄹ đầu âm tiết đọc gần “r”, cuối âm tiết đọc là “l”.'],
+      compare: 'Âm bật hơi: bật nhiều hơi ra (đặt tờ giấy trước miệng sẽ thấy giấy rung). Âm căng: căng cổ họng, không bật hơi.' } },
+  'H-BAT': { title: 'Patchim và quy tắc nối âm', goal: 'Đọc đúng phụ âm cuối và nối âm khi đọc liền.',
+    body: { explain: 'Patchim là phụ âm ở cuối âm tiết. Dù viết bằng nhiều chữ khác nhau, patchim chỉ có 7 âm đọc: [k] [n] [t] [l] [m] [p] [ng]. Khi patchim đứng trước âm tiết bắt đầu bằng ㅇ, patchim được chuyển sang đọc thành phụ âm đầu của âm tiết sau (nối âm).',
+      formula: '[k]: ㄱ ㅋ ㄲ · [n]: ㄴ · [t]: ㄷ ㅌ ㅅ ㅆ ㅈ ㅊ ㅎ · [l]: ㄹ · [m]: ㅁ · [p]: ㅂ ㅍ · [ng]: ㅇ',
+      examples: [['한국어 → [한구거]', 'tiếng Hàn'], ['이름은 → [이르믄]', 'tên thì'], ['음악 → [으막]', 'âm nhạc'], ['옷이 → [오시]', 'quần áo (chủ ngữ)']],
+      mistakes: ['Đọc 옷 thành “ốt-s”: patchim ㅅ chỉ đọc [t].', 'Khi nối âm, ㅇ ở patchim không chuyển sang: 강아지 → [강아지].'],
+      compare: 'Patchim đứng một mình (옷 [옫]) ↔ patchim nối âm (옷을 [오슬]).' } },
+
+  'V-INTRO': { title: 'Từ vựng tự giới thiệu', goal: 'Nói được quốc tịch, nghề nghiệp và các câu chào cơ bản.',
+    body: { explain: 'Quốc tịch = tên nước + 사람 (người). Nghề nghiệp đứng trước 이에요/예요 hoặc 입니다.', formula: '[Tên nước] 사람 · [Nghề nghiệp]이에요/예요',
+      examples: [['베트남 사람이에요.', 'Tôi là người Việt Nam.'], ['회사원이에요.', 'Tôi là nhân viên công ty.'], ['반갑습니다.', 'Rất vui được gặp bạn.']],
+      mistakes: ['선생님 đã là kính ngữ, không dùng để tự giới thiệu nghề của mình theo lối khiêm tốn: nói 저는 교사예요 khi trang trọng.'],
+      compare: '안녕히 가세요 (người ở lại nói với người đi) ↔ 안녕히 계세요 (người đi nói với người ở lại).' } },
+  'V-SCHOOL': { title: 'Từ vựng trường học', goal: 'Gọi tên nơi chốn và đồ vật trong trường.',
+    body: { explain: 'Nhóm từ này thường đi với 이것/그것/저것 và 여기/거기/저기 để hỏi – đáp tên đồ vật, vị trí.', formula: '이것은 [đồ vật]이에요/예요 · [nơi chốn]이/가 어디에 있어요?',
+      examples: [['이것은 지우개예요.', 'Cái này là cục tẩy.'], ['도서관이 어디에 있어요?', 'Thư viện ở đâu?'], ['저기가 기숙사예요.', 'Chỗ kia là ký túc xá.']],
+      mistakes: ['볼펜 (bút bi) ≠ 연필 (bút chì).'], compare: '이것 (gần người nói) · 그것 (gần người nghe) · 저것 (xa cả hai).' } },
+  'V-DAILY': { title: 'Từ vựng sinh hoạt hằng ngày', goal: 'Dùng được các động từ, tính từ hay gặp.',
+    body: { explain: 'Động từ và tính từ nguyên thể kết thúc bằng 다. Khi dùng trong câu phải bỏ 다 rồi chia đuôi (-아/어요, -ㅂ/습니다…).', formula: 'Gốc + đuôi câu: 먹다 → 먹 + 어요 = 먹어요',
+      examples: [['아침에 일어나요.', 'Buổi sáng tôi thức dậy.'], ['영화가 재미있어요.', 'Phim thú vị.'], ['친구를 만나요.', 'Tôi gặp bạn.']],
+      mistakes: ['Tính từ tiếng Hàn tự làm vị ngữ, không cần “là”: 커요 (to), không nói 크다이에요.'], compare: 'Động từ (먹다, 읽다) đi với 을/를; tính từ (크다, 맛있다) đi với 이/가.' } },
+  'V-DATE': { title: 'Số và thời gian', goal: 'Đọc số, thứ, ngày và giờ.',
+    body: { explain: 'Tiếng Hàn có hai hệ số. Số Hán Hàn (일, 이, 삼…) dùng cho ngày, tháng, năm, tiền, số phút, số điện thoại. Số thuần Hàn (하나, 둘, 셋…) dùng để đếm đồ vật, tuổi và giờ.', formula: '[Số thuần Hàn] 시 [Số Hán Hàn] 분 · [Số Hán Hàn] 월 [Số Hán Hàn] 일',
+      examples: [['세 시 십 분', '3 giờ 10 phút'], ['오월 오일', 'ngày 5 tháng 5'], ['월요일부터 금요일까지', 'từ thứ Hai đến thứ Sáu']],
+      mistakes: ['Nói giờ bằng số Hán Hàn (삼 시) là sai: phải nói 세 시.', '하나, 둘, 셋, 넷 đứng trước danh từ đơn vị đổi thành 한, 두, 세, 네.'], compare: '일 (một – Hán Hàn) ↔ 하나 (một – thuần Hàn).' } },
+  'V-FOOD': { title: 'Mua sắm và món ăn', goal: 'Hỏi giá, nói số lượng, gọi món.',
+    body: { explain: 'Khi mua hàng: [đồ vật] + [số thuần Hàn] + [đơn vị] + 주세요. Hỏi giá: 얼마예요?', formula: '사과 두 개 주세요. · 이거 얼마예요?',
+      examples: [['비빔밥 하나 주세요.', 'Cho tôi một phần bibimbap.'], ['우유 한 병에 얼마예요?', 'Một chai sữa bao nhiêu tiền?'], ['김치가 매워요.', 'Kim chi cay.']],
+      mistakes: ['“Hai cái táo” là 사과 두 개, không nói 두 개 사과 như tiếng Việt.'], compare: '싸다 (rẻ) ↔ 비싸다 (đắt).' } },
+  'V-FAMILY': { title: 'Gia đình và thời tiết', goal: 'Giới thiệu gia đình, nói về thời tiết và các mùa.',
+    body: { explain: 'Cách gọi anh chị phụ thuộc giới tính của người nói: em trai gọi anh là 형, chị là 누나; em gái gọi anh là 오빠, chị là 언니.', formula: '[thành viên]이/가 있어요 · 날씨가 [tính từ]',
+      examples: [['저는 오빠가 한 명 있어요.', 'Tôi (nữ) có một anh trai.'], ['오늘은 날씨가 추워요.', 'Hôm nay trời lạnh.'], ['봄에는 따뜻해요.', 'Mùa xuân thì ấm áp.']],
+      mistakes: ['Nam giới gọi anh trai là 오빠 là sai, phải là 형.'], compare: '덥다 (nóng – thời tiết) ↔ 뜨겁다 (nóng – đồ vật).' } },
+  'V-HEALTH': { title: 'Cơ thể và bệnh viện', goal: 'Nói chỗ đau, triệu chứng; dùng từ ở bệnh viện, hiệu thuốc.',
+    body: { explain: 'Nói chỗ đau: [bộ phận]이/가 아파요. Ở hiệu thuốc thường nghe: 하루에 세 번 드세요 (ngày uống ba lần).', formula: '[bộ phận]이/가 아파요 · [triệu chứng]이/가 있어요',
+      examples: [['머리가 아파요.', 'Tôi đau đầu.'], ['열이 있어요.', 'Tôi bị sốt.'], ['약국에서 약을 샀어요.', 'Tôi đã mua thuốc ở hiệu thuốc.']],
+      mistakes: ['“Uống thuốc” trong tiếng Hàn là 약을 먹다 (ăn thuốc), không dùng 마시다.'], compare: '병원 (bệnh viện) ↔ 약국 (hiệu thuốc).' } },
+
+  'G-COPULA': { title: '입니다 và 이에요/예요', goal: 'Nói “A là B” ở mức trang trọng và lịch sự thân mật.',
+    body: { explain: '입니다 là đuôi trang trọng (phát biểu, phỏng vấn, tin tức). 이에요/예요 là đuôi lịch sự thân mật, dùng nhiều trong hội thoại hằng ngày. Chọn 이에요 khi danh từ có patchim, 예요 khi không có patchim.',
+      formula: 'N(có patchim) + 이에요 · N(không patchim) + 예요 · N + 입니다 · Câu hỏi: 이에요?/예요?/입니까?',
+      examples: [['학생이에요.', 'Tôi là sinh viên.'], ['의사예요.', 'Tôi là bác sĩ.'], ['회사원입니다.', 'Tôi là nhân viên công ty.'], ['한국 사람이에요?', 'Bạn là người Hàn à?']],
+      mistakes: ['의사이에요 ✗ → 의사예요 ✓ (의사 không có patchim).', '학생예요 ✗ → 학생이에요 ✓.', 'Câu hỏi lịch sự thân mật chỉ cần lên giọng: 학생이에요? — không có đuôi hỏi riêng.'],
+      compare: '입니다 / 입니까? (trang trọng) ↔ 이에요 / 예요 (thân mật lịch sự). Phủ định của cả hai là 이/가 아니에요 · 아닙니다.' } },
+  'G-TOPIC': { title: 'Tiểu từ 은/는 và 이/가', goal: 'Chọn đúng hình thức và dùng đúng chức năng của hai cặp tiểu từ.',
+    body: { explain: '은/는 đánh dấu chủ đề câu chuyện (“còn … thì”), dùng khi giới thiệu, đối chiếu hoặc nói điều đã biết. 이/가 đánh dấu chủ ngữ, nhấn vào thông tin mới, thường đi với 있다/없다, tính từ, và để trả lời câu hỏi 누가 (ai).',
+      formula: 'Có patchim: 은 / 이 · Không patchim: 는 / 가 · Đặc biệt: 저 + 가 = 제가, 나 + 가 = 내가, 누구 + 가 = 누가',
+      examples: [['저는 마이예요.', 'Tôi là Mai.'], ['가방이 있어요.', 'Có cái cặp.'], ['누가 학생이에요? — 제가 학생이에요.', 'Ai là sinh viên? — Tôi là sinh viên.'], ['사과는 맛있어요. 그런데 배는 맛없어요.', 'Táo thì ngon. Nhưng lê thì không ngon.']],
+      mistakes: ['저가 ✗ → 제가 ✓.', 'Trả lời câu hỏi 누가 bằng 은/는 (저는 …) là không tự nhiên; dùng 제가.', 'Chọn theo âm cuối của chữ viết, không theo cách đọc.'],
+      compare: '은/는: chủ đề, đối chiếu, thông tin đã biết ↔ 이/가: chủ ngữ, thông tin mới, sự tồn tại.' } },
+  'G-OBJ': { title: 'Tiểu từ 을/를', goal: 'Đánh dấu tân ngữ của động từ.',
+    body: { explain: '을/를 gắn sau danh từ là đối tượng chịu tác động của động từ (ăn cái gì, xem cái gì). Trong văn nói có thể lược bỏ, nhưng khi học nên dùng đầy đủ.',
+      formula: 'N(có patchim) + 을 · N(không patchim) + 를 · 무엇을 = 뭘 (văn nói)',
+      examples: [['밥을 먹어요.', 'Tôi ăn cơm.'], ['커피를 마셔요.', 'Tôi uống cà phê.'], ['무엇을 해요?', 'Bạn làm gì?']],
+      mistakes: ['커피을 ✗ → 커피를 ✓.', 'Tính từ không có tân ngữ: 김치를 맛있어요 ✗ → 김치가 맛있어요 ✓.', '좋아하다 dùng 을/를 (김치를 좋아해요), còn 좋다 dùng 이/가 (김치가 좋아요).'],
+      compare: '을/를 (tân ngữ) ↔ 이/가 (chủ ngữ): 친구가 와요 (bạn đến) · 친구를 만나요 (gặp bạn).' } },
+  'G-LOC': { title: 'Tiểu từ 에 và 에서', goal: 'Phân biệt nơi tồn tại / nơi đến / thời gian (에) với nơi diễn ra hành động (에서).',
+    body: { explain: '에 cho biết vị trí tồn tại (đi với 있다/없다), nơi đến (đi với 가다/오다) và thời điểm (세 시에, 주말에). 에서 cho biết nơi hành động diễn ra (học, ăn, làm việc… ở đâu).',
+      formula: 'N + 에 있다/없다/가다/오다 · Thời gian + 에 · Nơi chốn + 에서 + động từ hành động',
+      examples: [['교실에 의자가 있어요.', 'Trong lớp có ghế.'], ['학교에 가요.', 'Tôi đi đến trường.'], ['도서관에서 공부해요.', 'Tôi học ở thư viện.'], ['일곱 시에 일어나요.', 'Tôi dậy lúc 7 giờ.']],
+      mistakes: ['도서관에 공부해요 ✗ → 도서관에서 공부해요 ✓.', '학교에서 가요 ✗ (nếu muốn nói “đi đến trường”) → 학교에 가요 ✓.', 'Không thêm 에 sau 오늘, 내일, 어제, 지금: 오늘에 ✗.'],
+      compare: 'Hỏi “ở đâu có …?” dùng 어디에 있어요? · hỏi “làm … ở đâu?” dùng 어디에서 …?' } },
+  'G-FORMAL': { title: 'Đuôi câu trang trọng -ㅂ/습니다', goal: 'Chia động từ, tính từ ở dạng trần thuật và nghi vấn trang trọng.',
+    body: { explain: 'Bỏ 다 để lấy gốc. Gốc không có patchim thêm -ㅂ니다 (như một patchim ㅂ ghép vào). Gốc có patchim thêm -습니다. Gốc tận cùng bằng ㄹ: bỏ ㄹ rồi thêm -ㅂ니다. Câu hỏi đổi -다 thành -까?',
+      formula: '가다 → 갑니다 / 갑니까? · 먹다 → 먹습니다 / 먹습니까? · 살다 → 삽니다',
+      examples: [['저는 매일 운동합니다.', 'Tôi tập thể dục mỗi ngày.'], ['무엇을 읽습니까?', 'Bạn đọc gì?'], ['하노이에 삽니다.', 'Tôi sống ở Hà Nội.']],
+      mistakes: ['살습니다 ✗ → 삽니다 ✓.', 'Viết tách 가ㅂ니다 ✗: ㅂ phải nhập vào âm tiết cuối của gốc → 갑니다.'],
+      compare: '-ㅂ/습니다 (trang trọng, bản tin, phát biểu) ↔ -아/어요 (thân mật lịch sự, hội thoại).' } },
+  'G-POLITE': { title: 'Đuôi câu hiện tại lịch sự -아/어요', goal: 'Chia đúng -아요/-어요/-해요, kể cả các dạng rút gọn.',
+    body: { explain: 'Nhìn nguyên âm của âm tiết cuối gốc: ㅏ hoặc ㅗ → -아요; nguyên âm khác → -어요; gốc 하 → 해요. Khi gốc không có patchim, nguyên âm thường rút gọn: 가+아요 = 가요, 보+아요 = 봐요, 마시+어요 = 마셔요, 배우+어요 = 배워요.',
+      formula: 'ㅏ/ㅗ + 아요 · khác + 어요 · 하다 → 해요 · Bất quy tắc: 듣다 → 들어요, 덥다 → 더워요, 쓰다 → 써요',
+      examples: [['저는 학교에 가요.', 'Tôi đi học.'], ['음악을 들어요.', 'Tôi nghe nhạc.'], ['오늘은 바빠요.', 'Hôm nay tôi bận.']],
+      mistakes: ['먹아요 ✗ → 먹어요 ✓ (ㅓ không phải ㅏ/ㅗ).', '가아요 ✗ → 가요 ✓ (rút gọn).', '공부하요 ✗ → 공부해요 ✓.'],
+      compare: 'Một đuôi -아/어요 dùng cho cả câu kể, câu hỏi (lên giọng), câu đề nghị — phân biệt bằng ngữ điệu.' } },
+  'G-NEG': { title: 'Câu phủ định cơ bản', goal: 'Phủ định động từ, tính từ và danh từ đúng cách.',
+    body: { explain: 'Phủ định động từ/tính từ: đặt 안 trước động từ, hoặc thêm -지 않다 sau gốc. Với động từ dạng “danh từ + 하다” (공부하다, 운동하다), 안 đứng giữa: 공부 안 해요. Phủ định danh từ dùng 이/가 아니다.',
+      formula: '안 + V/A · V/A + -지 않아요 · N이/가 아니에요 · 있다 → 없다',
+      examples: [['오늘은 안 바빠요.', 'Hôm nay tôi không bận.'], ['김치를 먹지 않아요.', 'Tôi không ăn kim chi.'], ['저는 의사가 아니에요.', 'Tôi không phải là bác sĩ.'], ['주말에는 공부 안 해요.', 'Cuối tuần tôi không học.']],
+      mistakes: ['안 공부해요 ✗ → 공부 안 해요 ✓.', '안 있어요 ✗ → 없어요 ✓.', '학생 안이에요 ✗ → 학생이 아니에요 ✓.'],
+      compare: '안 / -지 않다: “không làm” (chủ ý). 못 / -지 못하다 (SC1 Bài 13): “không thể làm”.' } },
+  'G-PAST': { title: 'Thì quá khứ -았/었-', goal: 'Kể lại việc đã xảy ra.',
+    body: { explain: 'Quy tắc chọn giống -아/어요: ㅏ/ㅗ → -았어요, nguyên âm khác → -었어요, 하다 → 했어요. Các dạng rút gọn cũng giống: 가다 → 갔어요, 보다 → 봤어요, 마시다 → 마셨어요.',
+      formula: 'ㅏ/ㅗ + 았어요 · khác + 었어요 · 하다 → 했어요 · Danh từ: 학생이었어요 / 의사였어요',
+      examples: [['어제 친구를 만났어요.', 'Hôm qua tôi đã gặp bạn.'], ['주말에 영화를 봤어요.', 'Cuối tuần tôi đã xem phim.'], ['작년에 학생이었어요.', 'Năm ngoái tôi là sinh viên.']],
+      mistakes: ['가았어요 ✗ → 갔어요 ✓.', 'Câu có 어제, 지난주 mà động từ vẫn để hiện tại là sai thì.'],
+      compare: '-았/었어요 (thân mật lịch sự) ↔ -았/었습니다 (trang trọng): 갔어요 ↔ 갔습니다.' } },
+  'G-WANT': { title: '-고 싶다, -(으)세요, -(으)ㅂ시다', goal: 'Nói điều mình muốn, yêu cầu lịch sự và rủ người khác.',
+    body: { explain: '-고 싶다: muốn làm gì (chủ ngữ ngôi 1, hoặc hỏi ngôi 2). -(으)세요: đề nghị/yêu cầu lịch sự (“hãy …”). -(으)ㅂ시다: rủ cùng làm (“cùng … nào”), dùng với người ngang hàng hoặc dưới, tránh dùng với người lớn tuổi hơn.',
+      formula: 'V + 고 싶어요 · Gốc không patchim + 세요 / có patchim + 으세요 · Gốc không patchim + ㅂ시다 / có patchim + 읍시다',
+      examples: [['한국에 가고 싶어요.', 'Tôi muốn đi Hàn Quốc.'], ['여기 앉으세요.', 'Mời ngồi đây ạ.'], ['같이 점심을 먹읍시다.', 'Cùng ăn trưa nào.']],
+      mistakes: ['읽세요 ✗ → 읽으세요 ✓.', 'Nói về người thứ ba muốn gì dùng -고 싶어하다: 동생이 가고 싶어해요.', '먹다 dạng kính ngữ yêu cầu thường dùng 드세요.'],
+      compare: '-(으)세요 (bảo người nghe làm) ↔ -(으)ㅂ시다 (rủ cả hai cùng làm).' } },
+  'L-SC1': { title: 'Chiến lược nghe', goal: 'Nghe bắt từ khoá và hiểu ý chính câu ngắn.',
+    body: { explain: 'Nghe lần đầu để đoán tình huống (ở đâu, ai nói với ai). Nghe lần hai để bắt từ khoá: từ để hỏi (어디, 얼마, 몇 시), động từ và đuôi câu (thì, câu hỏi hay đề nghị).', formula: 'Tình huống → từ khoá → đuôi câu',
+      examples: [['얼마예요?', 'Bao nhiêu tiền?'], ['몇 시예요?', 'Mấy giờ?'], ['같이 갑시다.', 'Cùng đi nào.']],
+      mistakes: ['Bỏ qua đuôi câu nên nhầm thì: 봐요 (xem) ↔ 봤어요 (đã xem).'], compare: '-(으)세요 (hãy…) ↔ -아/어요 (kể/hỏi).' } },
+  'R-SC1': { title: 'Chiến lược đọc', goal: 'Đọc đoạn ngắn và tìm thông tin.',
+    body: { explain: 'Đọc câu hỏi trước, gạch chân từ để hỏi, sau đó tìm câu chứa thông tin tương ứng. Chú ý tiểu từ: 에 (thời gian, nơi đến), 에서 (nơi làm việc gì).', formula: 'Câu hỏi → từ khoá → câu chứa đáp án',
+      examples: [['몇 시에 일어나요?', 'Mấy giờ dậy?'], ['어디에서 점심을 먹어요?', 'Ăn trưa ở đâu?']], mistakes: ['Chọn đáp án có từ giống bài đọc nhưng sai nghĩa.'], compare: '' } },
+  'W-SC1': { title: 'Viết câu theo yêu cầu', goal: 'Viết câu đúng tiểu từ, đúng đuôi câu và đủ ý.',
+    body: { explain: 'Bài viết được chấm theo tiêu chí: dùng chữ Hàn, đủ độ dài, có cấu trúc được yêu cầu, có từ khoá của chủ đề. Mỗi tiêu chí chưa đạt sẽ có gợi ý sửa. Giáo viên có thể nhận xét thêm.', formula: 'Chủ ngữ + 은/는 · Tân ngữ + 을/를 · Nơi chốn + 에서 · Động từ + đuôi câu',
+      examples: [['저는 회사원이에요.', 'Tôi là nhân viên công ty.'], ['주말에 친구를 만났어요.', 'Cuối tuần tôi đã gặp bạn.']], mistakes: ['Viết phiên âm Latin thay vì chữ Hàn.', 'Thiếu tiểu từ.'], compare: '' } },
+  'G-MUST': { title: 'Bắt buộc, cho phép, cấm đoán', goal: 'Nói phải làm gì, được làm gì, không được làm gì.',
+    body: { explain: '-아/어야 하다: phải làm. -아/어도 되다: làm … cũng được (xin phép / cho phép). -(으)면 안 되다: không được làm (cấm đoán). Cách chọn -아/-어 giống đuôi -아/어요.',
+      formula: '가야 해요 · 가도 돼요? · 가면 안 돼요 · 먹어야 해요 · 먹어도 돼요 · 먹으면 안 돼요',
+      examples: [['약을 먹어야 해요.', 'Phải uống thuốc.'], ['창문을 열어도 돼요?', 'Tôi mở cửa sổ được không?'], ['여기에서 사진을 찍으면 안 돼요.', 'Không được chụp ảnh ở đây.']],
+      mistakes: ['먹면 안 돼요 ✗ → 먹으면 안 돼요 ✓.', 'Trả lời xin phép: 네, 해도 돼요 / 아니요, 하면 안 돼요.'],
+      compare: '-아/어야 하다 (bắt buộc) ↔ -아/어도 되다 (cho phép) ↔ -(으)면 안 되다 (cấm).' } },
+  'G-CONN': { title: 'Nối câu: -고, -지만, -(으)면, -(으)ㄹ 때', goal: 'Nối hai mệnh đề thành một câu.',
+    body: { explain: '-고: và, rồi (liệt kê hoặc trình tự). -지만: nhưng. -(으)면: nếu … thì. -(으)ㄹ 때: khi …. Thì của cả câu đặt ở động từ cuối câu.',
+      formula: 'V-고 · V-지만 · Gốc không patchim + 면 / có patchim + 으면 · Gốc không patchim + ㄹ 때 / có patchim + 을 때',
+      examples: [['밥을 먹고 영화를 봐요.', 'Ăn cơm rồi xem phim.'], ['한국어는 어렵지만 재미있어요.', 'Tiếng Hàn khó nhưng thú vị.'], ['시간이 있으면 전화하세요.', 'Nếu có thời gian thì gọi điện nhé.'], ['한국에 갈 때 선물을 샀어요.', 'Khi đi Hàn Quốc tôi đã mua quà.']],
+      mistakes: ['먹면 ✗ → 먹으면 ✓.', '가을 때 ✗ → 갈 때 ✓.'],
+      compare: '-(으)면: điều kiện giả định ↔ -(으)ㄹ 때: thời điểm cụ thể.' } },
+};
+
+/* ------------------------------ TỪ VỰNG ------------------------------ */
+const VOCAB = {
+  'V-INTRO': [['한국', 'Hàn Quốc'], ['베트남', 'Việt Nam'], ['중국', 'Trung Quốc'], ['일본', 'Nhật Bản'], ['미국', 'Mỹ'], ['호주', 'Úc'], ['사람', 'người'], ['학생', 'học sinh, sinh viên'], ['선생님', 'giáo viên'], ['회사원', 'nhân viên công ty'], ['의사', 'bác sĩ'], ['가수', 'ca sĩ'], ['주부', 'nội trợ'], ['공무원', 'công chức'], ['은행원', 'nhân viên ngân hàng'], ['안녕하세요', 'xin chào'], ['반갑습니다', 'rất vui được gặp'], ['감사합니다', 'cảm ơn'], ['죄송합니다', 'xin lỗi'], ['이름', 'tên']],
+  'V-SCHOOL': [['교실', 'phòng học'], ['도서관', 'thư viện'], ['식당', 'nhà ăn'], ['화장실', 'nhà vệ sinh'], ['사무실', 'văn phòng'], ['기숙사', 'ký túc xá'], ['책', 'sách'], ['공책', 'vở'], ['연필', 'bút chì'], ['볼펜', 'bút bi'], ['지우개', 'cục tẩy'], ['가방', 'cặp sách, túi'], ['책상', 'bàn học'], ['의자', 'ghế'], ['시계', 'đồng hồ'], ['컴퓨터', 'máy tính'], ['칠판', 'bảng đen'], ['창문', 'cửa sổ']],
+  'V-DAILY': [['먹다', 'ăn'], ['마시다', 'uống'], ['보다', 'xem, nhìn'], ['읽다', 'đọc'], ['공부하다', 'học (bài)'], ['일하다', 'làm việc'], ['만나다', 'gặp'], ['자다', 'ngủ'], ['일어나다', 'thức dậy'], ['운동하다', 'tập thể dục'], ['좋다', 'tốt, thích'], ['크다', 'to, lớn'], ['작다', 'nhỏ'], ['맛있다', 'ngon'], ['재미있다', 'thú vị'], ['바쁘다', 'bận'], ['밥', 'cơm'], ['물', 'nước'], ['영화', 'phim'], ['친구', 'bạn bè']],
+  'V-DATE': [['일', 'một (số Hán Hàn)'], ['삼', 'ba (số Hán Hàn)'], ['십', 'mười (số Hán Hàn)'], ['백', 'một trăm'], ['하나', 'một (số thuần Hàn)'], ['둘', 'hai (số thuần Hàn)'], ['셋', 'ba (số thuần Hàn)'], ['월요일', 'thứ Hai'], ['화요일', 'thứ Ba'], ['수요일', 'thứ Tư'], ['목요일', 'thứ Năm'], ['금요일', 'thứ Sáu'], ['토요일', 'thứ Bảy'], ['일요일', 'Chủ nhật'], ['오늘', 'hôm nay'], ['내일', 'ngày mai'], ['어제', 'hôm qua'], ['주말', 'cuối tuần'], ['아침', 'buổi sáng'], ['저녁', 'buổi tối']],
+  'V-FOOD': [['사과', 'quả táo'], ['우유', 'sữa'], ['빵', 'bánh mì'], ['커피', 'cà phê'], ['김치', 'kim chi'], ['비빔밥', 'cơm trộn bibimbap'], ['불고기', 'thịt bò nướng bulgogi'], ['냉면', 'mì lạnh'], ['라면', 'mì ăn liền'], ['가게', 'cửa hàng'], ['시장', 'chợ'], ['얼마', 'bao nhiêu (tiền)'], ['원', 'won (tiền Hàn)'], ['개', 'cái (đơn vị đếm)'], ['병', 'chai'], ['메뉴', 'thực đơn'], ['맵다', 'cay'], ['싸다', 'rẻ'], ['비싸다', 'đắt']],
+  'V-FAMILY': [['가족', 'gia đình'], ['아버지', 'bố'], ['어머니', 'mẹ'], ['형', 'anh trai (em trai gọi)'], ['오빠', 'anh trai (em gái gọi)'], ['누나', 'chị gái (em trai gọi)'], ['언니', 'chị gái (em gái gọi)'], ['동생', 'em'], ['할아버지', 'ông'], ['할머니', 'bà'], ['날씨', 'thời tiết'], ['봄', 'mùa xuân'], ['여름', 'mùa hè'], ['가을', 'mùa thu'], ['겨울', 'mùa đông'], ['비', 'mưa'], ['덥다', 'nóng (thời tiết)'], ['춥다', 'lạnh (thời tiết)'], ['따뜻하다', 'ấm áp']],
+  'V-HEALTH': [['머리', 'đầu'], ['눈', 'mắt'], ['코', 'mũi'], ['입', 'miệng'], ['귀', 'tai'], ['배', 'bụng'], ['다리', 'chân'], ['손', 'bàn tay'], ['병원', 'bệnh viện'], ['약국', 'hiệu thuốc'], ['약', 'thuốc'], ['감기', 'cảm cúm'], ['열', 'sốt'], ['기침', 'ho'], ['아프다', 'đau, ốm'], ['간호사', 'y tá'], ['주사', 'mũi tiêm']],
+};
+
+/* ------------------------------ BẢNG HANGEUL ------------------------------ */
+const VOWELS = [['ㅏ', 'a'], ['ㅑ', 'ya'], ['ㅓ', 'eo (≈ ơ)'], ['ㅕ', 'yeo (≈ yơ)'], ['ㅗ', 'o (≈ ô)'], ['ㅛ', 'yo (≈ yô)'], ['ㅜ', 'u'], ['ㅠ', 'yu'], ['ㅡ', 'eu (≈ ư)'], ['ㅣ', 'i'], ['ㅐ', 'ae (≈ e)'], ['ㅔ', 'e (≈ ê)'], ['ㅘ', 'wa (≈ oa)'], ['ㅝ', 'wo (≈ uơ)'], ['ㅟ', 'wi (≈ uy)'], ['ㅢ', 'ui (≈ ưi)']];
+const CONSONANTS = [['ㄱ', 'g/k'], ['ㄴ', 'n'], ['ㄷ', 'd/t'], ['ㄹ', 'r/l'], ['ㅁ', 'm'], ['ㅂ', 'b/p'], ['ㅅ', 's'], ['ㅈ', 'j'], ['ㅊ', 'ch (bật hơi)'], ['ㅋ', 'kh (bật hơi)'], ['ㅌ', 'th (bật hơi)'], ['ㅍ', 'ph (bật hơi)'], ['ㅎ', 'h'], ['ㄲ', 'kk (căng)'], ['ㄸ', 'tt (căng)'], ['ㅃ', 'pp (căng)'], ['ㅆ', 'ss (căng)'], ['ㅉ', 'jj (căng)']];
+
+/* ------------------------------ ĐỘNG TỪ (bảng chia đã kiểm tra) ------------------------------ */
+// [nguyên thể, nghĩa, -ㅂ/습니다, -아/어요, -았/었어요, 안 + V, V-지 않아요]
+const VERBS = [
+  ['가다', 'đi', '갑니다', '가요', '갔어요', '안 가요', '가지 않아요'],
+  ['오다', 'đến', '옵니다', '와요', '왔어요', '안 와요', '오지 않아요'],
+  ['먹다', 'ăn', '먹습니다', '먹어요', '먹었어요', '안 먹어요', '먹지 않아요'],
+  ['마시다', 'uống', '마십니다', '마셔요', '마셨어요', '안 마셔요', '마시지 않아요'],
+  ['보다', 'xem', '봅니다', '봐요', '봤어요', '안 봐요', '보지 않아요'],
+  ['읽다', 'đọc', '읽습니다', '읽어요', '읽었어요', '안 읽어요', '읽지 않아요'],
+  ['공부하다', 'học', '공부합니다', '공부해요', '공부했어요', '공부 안 해요', '공부하지 않아요'],
+  ['일하다', 'làm việc', '일합니다', '일해요', '일했어요', '일 안 해요', '일하지 않아요'],
+  ['운동하다', 'tập thể dục', '운동합니다', '운동해요', '운동했어요', '운동 안 해요', '운동하지 않아요'],
+  ['만나다', 'gặp', '만납니다', '만나요', '만났어요', '안 만나요', '만나지 않아요'],
+  ['자다', 'ngủ', '잡니다', '자요', '잤어요', '안 자요', '자지 않아요'],
+  ['살다', 'sống', '삽니다', '살아요', '살았어요', '안 살아요', '살지 않아요'],
+  ['만들다', 'làm, chế biến', '만듭니다', '만들어요', '만들었어요', '안 만들어요', '만들지 않아요'],
+  ['놀다', 'chơi', '놉니다', '놀아요', '놀았어요', '안 놀아요', '놀지 않아요'],
+  ['배우다', 'học (từ ai)', '배웁니다', '배워요', '배웠어요', '안 배워요', '배우지 않아요'],
+  ['가르치다', 'dạy', '가르칩니다', '가르쳐요', '가르쳤어요', '안 가르쳐요', '가르치지 않아요'],
+  ['기다리다', 'đợi', '기다립니다', '기다려요', '기다렸어요', '안 기다려요', '기다리지 않아요'],
+  ['쓰다', 'viết', '씁니다', '써요', '썼어요', '안 써요', '쓰지 않아요'],
+  ['듣다', 'nghe', '듣습니다', '들어요', '들었어요', '안 들어요', '듣지 않아요'],
+  ['사다', 'mua', '삽니다', '사요', '샀어요', '안 사요', '사지 않아요'],
+  ['입다', 'mặc', '입습니다', '입어요', '입었어요', '안 입어요', '입지 않아요'],
+  ['앉다', 'ngồi', '앉습니다', '앉아요', '앉았어요', '안 앉아요', '앉지 않아요'],
+  ['주다', 'cho', '줍니다', '줘요', '줬어요', '안 줘요', '주지 않아요'],
+  ['좋다', 'tốt', '좋습니다', '좋아요', '좋았어요', '안 좋아요', '좋지 않아요'],
+  ['크다', 'to', '큽니다', '커요', '컸어요', '안 커요', '크지 않아요'],
+  ['바쁘다', 'bận', '바쁩니다', '바빠요', '바빴어요', '안 바빠요', '바쁘지 않아요'],
+  ['덥다', 'nóng', '덥습니다', '더워요', '더웠어요', '안 더워요', '덥지 않아요'],
+  ['춥다', 'lạnh', '춥습니다', '추워요', '추웠어요', '안 추워요', '춥지 않아요'],
+  ['맛있다', 'ngon', '맛있습니다', '맛있어요', '맛있었어요', null, null],
+  ['있다', 'có, ở', '있습니다', '있어요', '있었어요', null, null],
+];
+
+/* ------------------------------ CÂU TIỂU TỪ (đáp án tính theo patchim khi seed) ------------------------------ */
+const PARTICLE_SENTENCES = {
+  topic: [['저', '저___ 베트남 사람이에요.'], ['선생님', '선생님___ 한국 사람이에요.'], ['이름', '제 이름___ 민수예요.'], ['동생', '제 동생___ 학생이에요.'], ['친구', '제 친구___ 의사예요.'], ['오늘', '오늘___ 월요일이에요.'], ['주말', '주말___ 바빠요.'], ['우리 집', '우리 집___ 하노이에 있어요.'], ['이것', '이것___ 책이에요.'], ['가방', '가방___ 비싸요.'], ['김치', '김치___ 맛있어요.'], ['여기', '여기___ 도서관이에요.']],
+  subject: [['가방', '책상 위에 가방___ 있어요.'], ['시계', '교실에 시계___ 있어요.'], ['의자', '여기에 의자___ 없어요.'], ['화장실', '화장실___ 어디에 있어요?'], ['사과', '사과___ 맛있어요.'], ['친구', '한국 친구___ 있어요.'], ['날씨', '오늘 날씨___ 좋아요.'], ['책', '그것은 제 책___ 아니에요.'], ['커피', '이 커피___ 비싸요.'], ['동생', '동생___ 두 명 있어요.'], ['돈', '지금 돈___ 없어요.'], ['머리', '머리___ 아파요.']],
+  object: [['밥', '밥___ 먹어요.'], ['커피', '커피___ 마셔요.'], ['영화', '영화___ 봐요.'], ['책', '책___ 읽어요.'], ['한국어', '한국어___ 공부해요.'], ['친구', '친구___ 만나요.'], ['음악', '음악___ 들어요.'], ['편지', '편지___ 써요.'], ['옷', '옷___ 사요.'], ['사진', '사진___ 찍어요.'], ['김치', '김치___ 만들어요.'], ['물', '물___ 마셔요.']],
+  copula: [['학생', '저는 ___'], ['의사', '제 언니는 ___'], ['회사원', '우리 아버지는 ___'], ['가수', '그 사람은 ___'], ['선생님', '이분은 우리 ___'], ['책', '이것은 ___'], ['시계', '저것은 ___'], ['교실', '여기는 ___'], ['친구', '민수 씨는 제 ___'], ['베트남 사람', '저는 ___']],
+};
+
+/* ------------------------------ CÂU HỎI BIÊN SOẠN TAY ------------------------------ */
+// mc(prompt, [đúng, sai...], giải thích, {d: độ khó, tag: nhóm lỗi, fb: {sai: lý do}})
+// fill / tr: accepted[] · ord: words[] theo đúng thứ tự · err: [các phần], chỉ số phần sai · wr: rubric
+const mc = (prompt, o, expl, x = {}) => ({ type: 'mcq', prompt, o, expl, ...x });
+const fill = (prompt, acc, expl, x = {}) => ({ type: 'fill', prompt, acc, expl, ...x });
+const tr = (prompt, acc, expl, x = {}) => ({ type: 'translate', prompt, acc, expl, d: 3, ...x });
+const ord = (prompt, words, expl, x = {}) => ({ type: 'order', prompt, words, expl, d: 2, tag: 'word_order', ...x });
+const err = (parts, wrong, expl, x = {}) => ({ type: 'error', prompt: 'Tìm phần sai trong câu.', parts, wrong, expl, d: 2, ...x });
+const ls = (say, o, expl, x = {}) => ({ type: 'listen', prompt: 'Nghe và chọn nghĩa đúng.', say, o, expl, tag: 'listening', ...x });
+
+const HAND = {
+  'H-BAT': [
+    mc('Patchim của <b>책</b> đọc là âm nào?', ['[k]', '[t]', '[p]', '[ng]'], 'ㄱ ở cuối âm tiết đọc là [k].', { tag: 'spelling' }),
+    mc('Patchim của <b>옷</b> đọc là âm nào?', ['[t]', '[s]', '[k]', '[n]'], 'ㅅ ở cuối âm tiết đọc là [t], không đọc [s].', { tag: 'spelling', fb: { '[s]': 'ㅅ chỉ đọc [s] khi đứng đầu âm tiết. Ở vị trí patchim nó đọc [t].' } }),
+    mc('Patchim của <b>앞</b> đọc là âm nào?', ['[p]', '[k]', '[t]', '[m]'], 'ㅍ ở cuối âm tiết đọc là [p].', { tag: 'spelling' }),
+    mc('Patchim của <b>꽃</b> đọc là âm nào?', ['[t]', '[ch]', '[k]', '[ng]'], 'ㅊ ở cuối âm tiết đọc là [t].', { tag: 'spelling', d: 2 }),
+    mc('Patchim của <b>밖</b> đọc là âm nào?', ['[k]', '[kk]', '[t]', '[p]'], 'ㄲ ở cuối âm tiết đọc là [k].', { tag: 'spelling', d: 2 }),
+    mc('Patchim của <b>강</b> đọc là âm nào?', ['[ng]', '[n]', '[m]', 'không đọc'], 'ㅇ ở cuối âm tiết đọc là [ng].', { tag: 'spelling', fb: { 'không đọc': 'ㅇ chỉ câm khi đứng đầu âm tiết.' } }),
+    mc('<b>한국어</b> đọc là:', ['[한구거]', '[한국어]', '[항구거]'], 'Patchim ㄱ nối sang ㅇ của 어 → [한구거].', { tag: 'spelling', d: 2 }),
+    mc('<b>이름은</b> đọc là:', ['[이르믄]', '[이름은]', '[이르은]'], 'Patchim ㅁ nối sang 은 → [이르믄].', { tag: 'spelling', d: 2 }),
+    mc('<b>음악</b> đọc là:', ['[으막]', '[음악]', '[으낙]'], 'Patchim ㅁ nối sang 악 → [으막].', { tag: 'spelling', d: 2 }),
+    mc('<b>옷이</b> đọc là:', ['[오시]', '[오디]', '[옫이]'], 'Khi nối âm, patchim ㅅ trở lại âm [s] ở đầu âm tiết sau → [오시].', { tag: 'spelling', d: 3 }),
+    mc('Âm tiết nào <b>có</b> patchim?', ['밥', '바', '보', '비'], '밥 = ㅂ + ㅏ + ㅂ (patchim).', { tag: 'spelling' }),
+    { type: 'listen', prompt: 'Nghe và chọn âm tiết đúng.', say: '책', o: ['책', '채', '첵', '착'], expl: 'Âm vừa đọc là 책 (sách).', tag: 'listening', skill: 'listening' },
+  ],
+  'G-COPULA': [
+    mc('A: 학생이에요? B: 네, ________', ['학생이에요.', '학생예요.', '학생이에요?'], 'Câu trả lời khẳng định, 학생 có patchim → 학생이에요.', { fb: { '학생예요.': '학생 có patchim ㅇ nên dùng 이에요.', '학생이에요?': 'Đây là câu trả lời nên không lên giọng hỏi.' } }),
+    mc('Câu nào phù hợp khi phát biểu trang trọng (phỏng vấn, thuyết trình)?', ['저는 의사입니다.', '저는 의사예요.', '저는 의사야.'], '입니다 là đuôi trang trọng.', { d: 2 }),
+    mc('Hỏi lịch sự: “Bạn là người Hàn Quốc phải không?”', ['한국 사람이에요?', '한국 사람예요?', '한국 사람입니다?'], '사람 có patchim → 이에요; câu hỏi lên giọng. Trang trọng phải là 입니까?', { d: 2 }),
+    ord('Sắp xếp: “Tôi là người Việt Nam.”', ['저는', '베트남', '사람이에요.'], 'Chủ đề 저는 đứng đầu, vị ngữ 사람이에요 đứng cuối.'),
+    ord('Sắp xếp: “Tên tôi là Mai.”', ['제', '이름은', '마이예요.'], '제 이름은 + tên + 이에요/예요.'),
+    tr('Dịch sang tiếng Hàn: “Tôi là giáo viên.”', ['저는 선생님이에요', '선생님이에요', '저는 선생님입니다', '선생님입니다', '저는 교사예요', '저는 교사입니다', '교사예요'], 'N + 이에요/예요 hoặc 입니다.'),
+    err(['제', '친구는', '의사이에요.'], 2, '의사 không có patchim → 의사예요.', { tag: 'grammar' }),
+    err(['이것은', '시계이에요.'], 1, '시계 không có patchim → 시계예요.', { tag: 'grammar' }),
+  ],
+  'G-TOPIC': [
+    mc('A: 누가 마이 씨예요? B: 제___ 마이예요.', ['가', '는', '이'], 'Trả lời câu hỏi 누가 (ai) dùng 이/가; 저 + 가 → 제가.', { d: 3, tag: 'particle', fb: { '는': '저는 dùng để giới thiệu chủ đề. Khi trả lời câu hỏi 누가, thông tin mới phải đi với 이/가 → 제가.', '이': '저 không có patchim nên không dùng 이.' } }),
+    mc('Câu nào tự nhiên để nói “Còn tôi thì là sinh viên” (đối chiếu với người khác)?', ['저는 학생이에요.', '제가 학생이에요.', '저가 학생이에요.'], '은/는 dùng để đối chiếu, nêu chủ đề.', { d: 3, tag: 'particle', fb: { '저가 학생이에요.': '저 + 가 phải viết là 제가.' } }),
+    mc('Chọn câu đúng:', ['교실에 의자가 있어요.', '교실에 의자는가 있어요.', '교실에 의자이 있어요.'], '의자 không có patchim → 가.', { tag: 'particle' }),
+    err(['책상', '위에', '가방가', '있어요.'], 2, '가방 có patchim → 가방이.', { tag: 'particle' }),
+    err(['저가', '베트남', '사람이에요.'], 0, '저 + 가 phải là 제가; khi tự giới thiệu thường dùng 저는.', { tag: 'particle', d: 3 }),
+    ord('Sắp xếp: “Trong lớp có cái ghế.”', ['교실에', '의자가', '있어요.'], 'Nơi chốn + 에, chủ ngữ + 이/가, 있어요.'),
+    tr('Dịch sang tiếng Hàn: “Tên tôi là Lan.”', ['제 이름은 란이에요', '제 이름은 란입니다', '이름은 란이에요', '저는 란이에요', '저는 란입니다'], '이름 có patchim → 이름은; 란 có patchim → 란이에요.'),
+  ],
+  'G-OBJ': [
+    mc('Chọn câu đúng:', ['한국어를 공부해요.', '한국어을 공부해요.', '한국어가 공부해요.'], '한국어 không có patchim → 를.', { tag: 'particle', fb: { '한국어가 공부해요.': '공부하다 là động từ có tân ngữ, cần 을/를.' } }),
+    mc('A: 무엇을 ________ B: 빵을 먹어요.', ['먹어요?', '먹어요.', '먹다?'], 'Câu hỏi dùng đuôi -아/어요 và lên giọng.', { tag: 'conjugation' }),
+    mc('Chọn câu đúng:', ['김치가 맛있어요.', '김치를 맛있어요.', '김치을 맛있어요.'], '맛있다 là tính từ, không có tân ngữ → dùng 이/가.', { d: 3, tag: 'particle', fb: { '김치를 맛있어요.': '맛있다 là tính từ nên không đi với 을/를.' } }),
+    err(['저는', '커피을', '마셔요.'], 1, '커피 không có patchim → 커피를.', { tag: 'particle' }),
+    ord('Sắp xếp: “Tôi đọc sách ở thư viện.”', ['저는', '도서관에서', '책을', '읽어요.'], 'Chủ đề – nơi chốn 에서 – tân ngữ 을/를 – động từ.'),
+    tr('Dịch sang tiếng Hàn: “Tôi xem phim.”', ['영화를 봐요', '저는 영화를 봐요', '영화를 봅니다', '저는 영화를 봅니다'], '영화 không có patchim → 영화를; 보다 → 봐요.'),
+  ],
+  'G-LOC': [
+    mc('도서관___ 공부해요.', ['에서', '에'], 'Nơi diễn ra hành động (học) → 에서.', { tag: 'particle', fb: { '에': '에 chỉ vị trí tồn tại hoặc nơi đến. Hành động 공부하다 diễn ra ở đâu thì dùng 에서.' } }),
+    mc('저는 학교___ 가요.', ['에', '에서'], 'Nơi đến (đi đến trường) → 에.', { tag: 'particle', fb: { '에서': '에서 + 가다 nghĩa là “đi từ”. Muốn nói đi đến trường dùng 에.' } }),
+    mc('화장실이 어디___ 있어요?', ['에', '에서'], '있다 (tồn tại) đi với 에.', { tag: 'particle' }),
+    mc('식당___ 밥을 먹어요.', ['에서', '에'], 'Ăn cơm ở đâu → 에서.', { tag: 'particle' }),
+    mc('주말___ 친구를 만나요.', ['에', '에서'], 'Thời gian → 에.', { tag: 'particle' }),
+    mc('회사___ 일해요.', ['에서', '에'], 'Làm việc ở đâu → 에서.', { tag: 'particle' }),
+    mc('세 시___ 만나요.', ['에', '에서'], 'Thời điểm → 에.', { tag: 'particle' }),
+    mc('Câu nào sai?', ['오늘에 영화를 봐요.', '오늘 영화를 봐요.', '토요일에 영화를 봐요.'], '오늘, 내일, 어제 không đi với 에.', { d: 3, tag: 'particle' }),
+    err(['저는', '도서관에', '책을', '읽어요.'], 1, '읽다 là hành động → 도서관에서.', { tag: 'particle' }),
+    ord('Sắp xếp: “Ngày mai tôi đi đến trường.”', ['저는', '내일', '학교에', '가요.']),
+    tr('Dịch sang tiếng Hàn: “Tôi ăn cơm ở nhà ăn.”', ['식당에서 밥을 먹어요', '저는 식당에서 밥을 먹어요', '식당에서 밥을 먹습니다', '저는 식당에서 밥을 먹습니다'], '식당에서 (nơi hành động) + 밥을 먹어요.', { common_wrong: [{ text: '식당에 밥을 먹어요', why: 'Hành động ăn diễn ra ở nhà ăn nên phải dùng 에서.' }] }),
+  ],
+  'G-FORMAL': [
+    mc('Dạng nghi vấn trang trọng của <b>읽다</b>:', ['읽습니까?', '읽니까?', '읽습니다.'], 'Gốc có patchim → 습니까?', { tag: 'conjugation' }),
+    mc('Dạng nghi vấn trang trọng của <b>가다</b>:', ['갑니까?', '가습니까?', '갑니다.'], 'Gốc không patchim → ㅂ니까?', { tag: 'conjugation' }),
+    ord('Sắp xếp: “Mỗi ngày tôi học tiếng Hàn.”', ['저는', '매일', '한국어를', '공부합니다.']),
+    tr('Dịch sang tiếng Hàn (trang trọng): “Tôi sống ở Hà Nội.”', ['하노이에 삽니다', '저는 하노이에 삽니다'], '살다 → 삽니다 (bỏ ㄹ).', { tag: 'conjugation', common_wrong: [{ text: '하노이에 살습니다', why: 'Gốc tận cùng ㄹ: bỏ ㄹ rồi thêm ㅂ니다 → 삽니다.' }] }),
+  ],
+  'G-POLITE': [
+    err(['저는', '친구를', '만나어요.'], 2, '만나 + 아요 rút gọn thành 만나요.', { tag: 'conjugation' }),
+    err(['동생이', '음악을', '듣어요.'], 2, '듣다 là bất quy tắc ㄷ → 들어요.', { tag: 'conjugation', d: 3 }),
+    mc('Chọn câu đúng:', ['오늘은 날씨가 더워요.', '오늘은 날씨가 덥어요.', '오늘은 날씨가 더우어요.'], '덥다 là bất quy tắc ㅂ → 더워요.', { tag: 'conjugation', d: 3 }),
+  ],
+  'G-NEG': [
+    mc('Câu phủ định đúng của <b>공부해요</b> (dùng 안):', ['공부 안 해요.', '안 공부해요.', '공부하지 안아요.'], 'Động từ dạng N + 하다: 안 đứng giữa → 공부 안 해요.', { tag: 'grammar', fb: { '안 공부해요.': 'Với động từ “danh từ + 하다”, 안 phải đứng trước 하다: 공부 안 해요.' } }),
+    mc('이것은 책이 ________.', ['아니에요', '안이에요', '없어요'], 'Phủ định danh từ: N이/가 아니에요.', { tag: 'grammar' }),
+    mc('저는 학생___ 아니에요.', ['이', '가', '은'], '학생 có patchim → 이 아니에요.', { tag: 'particle' }),
+    mc('Phủ định của <b>시간이 있어요</b>:', ['시간이 없어요.', '시간이 안 있어요.', '시간이 있지 않아요.'], 'Phủ định của 있다 là 없다.', { d: 2, tag: 'grammar' }),
+    err(['오늘은', '안 운동해요.'], 1, 'Phải nói 운동 안 해요.', { tag: 'grammar', d: 2 }),
+    tr('Dịch sang tiếng Hàn: “Tôi không ăn kim chi.”', ['김치를 안 먹어요', '저는 김치를 안 먹어요', '김치를 먹지 않아요', '저는 김치를 먹지 않아요', '김치를 안 먹습니다', '김치를 먹지 않습니다', '저는 김치를 안 먹습니다', '저는 김치를 먹지 않습니다'], '안 + V hoặc V-지 않아요.'),
+  ],
+  'G-PAST': [
+    mc('A: 어제 뭐 ________ B: 영화를 봤어요.', ['했어요?', '해요?', '하세요?'], 'Hỏi về hôm qua → quá khứ 했어요?', { tag: 'conjugation' }),
+    err(['지난 주말에', '친구를', '만나요.'], 2, '지난 주말 là quá khứ → 만났어요.', { tag: 'conjugation' }),
+    mc('작년에 저는 학생___.', ['이었어요', '였어요', '이에요'], '학생 có patchim → 이었어요 (quá khứ của 이에요).', { d: 3, tag: 'conjugation' }),
+    ord('Sắp xếp: “Hôm qua tôi đã học ở thư viện.”', ['어제', '도서관에서', '공부했어요.']),
+    tr('Dịch sang tiếng Hàn: “Hôm qua tôi đã gặp bạn.”', ['어제 친구를 만났어요', '저는 어제 친구를 만났어요', '어제 친구를 만났습니다', '저는 어제 친구를 만났습니다'], '만나다 → 만났어요.'),
+  ],
+  'G-WANT': [
+    mc('“Tôi muốn ăn bibimbap.”', ['비빔밥을 먹고 싶어요.', '비빔밥을 먹으세요.', '비빔밥을 먹읍시다.'], 'Mong muốn: V-고 싶어요.'),
+    mc('Mời khách ngồi một cách lịch sự:', ['여기 앉으세요.', '여기 앉고 싶어요.', '여기 앉았어요.'], 'Yêu cầu lịch sự: -(으)세요.'),
+    mc('Rủ bạn: “Chúng ta cùng đi nào.”', ['같이 갑시다.', '같이 가세요.', '같이 가고 싶어요.'], 'Rủ cùng làm: -(으)ㅂ시다.'),
+    mc('<b>읽다</b> + -(으)세요:', ['읽으세요', '읽세요', '읽어세요'], 'Gốc có patchim → 으세요.', { tag: 'conjugation', fb: { '읽세요': '읽 có patchim nên phải thêm 으: 읽으세요.' } }),
+    mc('<b>먹다</b> + -(으)ㅂ시다:', ['먹읍시다', '먹ㅂ시다', '먹습시다'], 'Gốc có patchim → 읍시다.', { tag: 'conjugation' }),
+    mc('<b>가다</b> + -(으)ㅂ시다:', ['갑시다', '가읍시다', '갔읍시다'], 'Gốc không patchim → ㅂ시다.', { tag: 'conjugation' }),
+    fill('Điền dạng đúng: <b>보다</b> + -고 싶어요 → ____', ['보고 싶어요'], '-고 싶다 gắn thẳng vào gốc.', { tag: 'conjugation', d: 2 }),
+    tr('Dịch sang tiếng Hàn (lịch sự): “Hãy uống nước.”', ['물을 마시세요', '물 마시세요', '물을 드세요', '물 드세요'], '마시다 + 세요 → 마시세요 (kính ngữ: 드세요).'),
+  ],
+  'G-MUST': [
+    mc('Bác sĩ nói: “Anh phải uống thuốc.”', ['약을 먹어야 해요.', '약을 먹어도 돼요.', '약을 먹으면 안 돼요.'], 'Bắt buộc: -아/어야 하다.'),
+    mc('Biển báo ở bảo tàng: “Không được chụp ảnh.”', ['사진을 찍으면 안 돼요.', '사진을 찍어도 돼요.', '사진을 찍어야 해요.'], 'Cấm: -(으)면 안 되다.'),
+    mc('Xin phép: “Tôi mở cửa sổ được không?”', ['창문을 열어도 돼요?', '창문을 열어야 해요?', '창문을 열면 안 돼요.'], 'Xin phép: -아/어도 돼요?'),
+    mc('<b>가다</b> + -아/어야 하다:', ['가야 해요', '가어야 해요', '갔야 해요'], '가 + 아야 → 가야 해요.', { tag: 'conjugation' }),
+    mc('<b>먹다</b> + -(으)면 안 되다:', ['먹으면 안 돼요', '먹면 안 돼요', '먹어면 안 돼요'], 'Gốc có patchim → 으면.', { tag: 'conjugation' }),
+    fill('Điền dạng đúng: <b>앉다</b> + -아/어도 돼요 → ____', ['앉아도 돼요'], 'ㅏ → 아도 돼요.', { tag: 'conjugation', d: 2 }),
+    tr('Dịch sang tiếng Hàn: “Ngày mai tôi phải đi làm.”', ['내일 일해야 해요', '저는 내일 일해야 해요', '내일 회사에 가야 해요', '저는 내일 회사에 가야 해요', '내일 출근해야 해요', '저는 내일 출근해야 해요'], '-아/어야 하다 diễn đạt nghĩa vụ.'),
+  ],
+  'G-CONN': [
+    mc('“Trời nóng nhưng tôi thích mùa hè.”', ['덥지만 여름이 좋아요.', '덥고 여름이 좋아요.', '더우면 여름이 좋아요.'], 'Đối lập: -지만.'),
+    mc('“Nếu có thời gian thì hãy gọi cho tôi.”', ['시간이 있으면 전화하세요.', '시간이 있지만 전화하세요.', '시간이 있고 전화하세요.'], 'Điều kiện: -(으)면.'),
+    mc('“Khi buồn tôi nghe nhạc.”', ['슬플 때 음악을 들어요.', '슬프지만 음악을 들어요.', '슬픈 때 음악을 들어요.'], '슬프다 → 슬플 때.', { d: 2 }),
+    mc('<b>가다</b> + -(으)ㄹ 때:', ['갈 때', '가을 때', '가는 때'], 'Gốc không patchim → ㄹ 때.', { tag: 'conjugation' }),
+    mc('<b>먹다</b> + -(으)면:', ['먹으면', '먹면', '먹어면'], 'Gốc có patchim → 으면.', { tag: 'conjugation' }),
+    ord('Sắp xếp: “Nếu trời mưa thì tôi ở nhà.”', ['비가', '오면', '집에', '있어요.']),
+    tr('Dịch sang tiếng Hàn: “Tôi ăn cơm rồi xem phim.” (dùng -고)', ['밥을 먹고 영화를 봐요', '저는 밥을 먹고 영화를 봐요', '밥을 먹고 영화를 봅니다'], 'V1-고 V2: làm V1 rồi V2.'),
+  ],
+  'L-SC1': [
+    ls('화장실이 어디에 있어요?', ['Nhà vệ sinh ở đâu?', 'Thư viện ở đâu?', 'Bạn đang ở đâu?', 'Có nhà vệ sinh không?'], '화장실 = nhà vệ sinh, 어디에 있어요 = ở đâu.'),
+    ls('저는 베트남에서 왔어요.', ['Tôi đến từ Việt Nam.', 'Tôi sẽ đi Việt Nam.', 'Tôi sống ở Hàn Quốc.', 'Tôi là người Hàn Quốc.'], '-에서 왔어요 = đã đến từ.', { d: 2 }),
+    ls('이 사과 얼마예요?', ['Quả táo này bao nhiêu tiền?', 'Đây là quả táo phải không?', 'Bạn có táo không?', 'Cho tôi một quả táo.'], '얼마예요 = bao nhiêu tiền.'),
+    ls('내일 같이 영화를 봅시다.', ['Ngày mai cùng xem phim nhé.', 'Hôm qua tôi đã xem phim.', 'Ngày mai bạn xem phim à?', 'Tôi muốn xem phim.'], '-ㅂ시다 = cùng … nào.', { d: 2 }),
+    ls('어제 친구를 만났어요.', ['Hôm qua tôi đã gặp bạn.', 'Ngày mai tôi gặp bạn.', 'Hôm nay tôi gặp bạn.', 'Tôi muốn gặp bạn.'], '만났어요 là quá khứ.', { d: 2 }),
+    ls('비빔밥 하나 주세요.', ['Cho tôi một phần bibimbap.', 'Bibimbap rất ngon.', 'Tôi không ăn bibimbap.', 'Bibimbap bao nhiêu tiền?'], '하나 주세요 = cho tôi một.'),
+    ls('지금 몇 시예요?', ['Bây giờ là mấy giờ?', 'Bây giờ bạn ở đâu?', 'Hôm nay là thứ mấy?', 'Bạn bao nhiêu tuổi?'], '몇 시 = mấy giờ.'),
+    ls('오늘은 날씨가 추워요.', ['Hôm nay trời lạnh.', 'Hôm nay trời nóng.', 'Hôm qua trời lạnh.', 'Hôm nay trời mưa.'], '춥다 → 추워요 = lạnh.'),
+  ],
+  'G-POLITE_EXTRA': [],
+};
+
+/* ------------------------------ BÀI ĐỌC / BÀI NGHE ------------------------------ */
+const PASSAGES = [
+  { topic: 'R-SC1', kind: 'reading', title: '자기소개 · Giới thiệu bản thân',
+    ko: '안녕하세요? 저는 응우옌 반 남이에요. 베트남 사람이에요. 저는 하노이에 살아요. 회사원이에요. 회사에서 컴퓨터로 일해요. 주말에는 친구를 만나요. 그리고 한국어를 공부해요. 한국 음식을 아주 좋아해요.',
+    vi: 'Xin chào. Tôi là Nguyễn Văn Nam. Tôi là người Việt Nam, sống ở Hà Nội. Tôi là nhân viên công ty, làm việc bằng máy tính. Cuối tuần tôi gặp bạn bè và học tiếng Hàn. Tôi rất thích đồ ăn Hàn Quốc.',
+    qs: [
+      mc('남 씨는 어느 나라 사람이에요?', ['Người Việt Nam', 'Người Hàn Quốc', 'Người Trung Quốc', 'Người Nhật Bản'], '“베트남 사람이에요.”', { tag: 'reading' }),
+      mc('남 씨의 직업은 무엇이에요?', ['Nhân viên công ty', 'Sinh viên', 'Giáo viên', 'Bác sĩ'], '“회사원이에요.”', { tag: 'reading' }),
+      mc('Câu nào đúng với bài đọc?', ['남 씨는 하노이에 살아요.', '남 씨는 학생이에요.', '남 씨는 한국 음식을 안 좋아해요.'], '“저는 하노이에 살아요.”', { tag: 'reading', d: 2 }),
+    ] },
+  { topic: 'R-SC1', kind: 'reading', title: '나의 하루 · Một ngày của tôi',
+    ko: '저는 아침 일곱 시에 일어나요. 여덟 시에 학교에 가요. 오전에 한국어 수업이 있어요. 열두 시에 학교 식당에서 점심을 먹어요. 오후에는 도서관에서 숙제를 해요. 저녁에 집에서 가족하고 같이 저녁을 먹어요. 밤 열한 시에 자요.',
+    vi: 'Tôi dậy lúc 7 giờ sáng, 8 giờ đi học. Buổi sáng có giờ học tiếng Hàn. 12 giờ ăn trưa ở nhà ăn của trường. Buổi chiều làm bài tập ở thư viện. Buổi tối ăn cơm với gia đình ở nhà. 11 giờ đêm đi ngủ.',
+    qs: [
+      mc('이 사람은 몇 시에 일어나요?', ['7 giờ', '8 giờ', '12 giờ', '11 giờ'], '“아침 일곱 시에 일어나요.”', { tag: 'reading' }),
+      mc('점심을 어디에서 먹어요?', ['Nhà ăn của trường', 'Ở nhà', 'Thư viện', 'Quán cà phê'], '“학교 식당에서 점심을 먹어요.”', { tag: 'reading' }),
+      mc('오후에 무엇을 해요?', ['Làm bài tập ở thư viện', 'Học tiếng Hàn trên lớp', 'Ăn tối với gia đình', 'Đi ngủ'], '“오후에는 도서관에서 숙제를 해요.”', { tag: 'reading', d: 2 }),
+    ] },
+  { topic: 'R-SC1', kind: 'reading', title: '가게에서 · Ở cửa hàng',
+    ko: '손님: 사과 있어요?\n점원: 네, 있어요. 한 개에 천 원이에요.\n손님: 그럼 사과 다섯 개 주세요. 우유도 있어요?\n점원: 아니요, 우유는 없어요.\n손님: 네, 알겠어요. 모두 얼마예요?\n점원: 오천 원이에요.',
+    vi: 'Khách hỏi mua táo (1.000 won/quả), lấy 5 quả. Cửa hàng không có sữa. Tổng cộng 5.000 won.',
+    qs: [
+      mc('손님은 사과를 몇 개 사요?', ['5 quả', '1 quả', '10 quả', 'Không mua'], '“사과 다섯 개 주세요.”', { tag: 'reading' }),
+      mc('가게에 우유가 있어요?', ['Không có', 'Có', 'Có nhưng đắt', 'Bài không nói'], '“우유는 없어요.”', { tag: 'reading' }),
+      mc('모두 얼마예요?', ['5.000 won', '1.000 won', '500 won', '50.000 won'], '“오천 원이에요.”', { tag: 'reading', d: 2 }),
+    ] },
+  { topic: 'L-SC1', kind: 'listening', title: '약속 · Hẹn gặp',
+    ko: '수진 씨, 토요일에 시간 있어요? 네, 있어요. 왜요? 같이 영화를 봅시다. 좋아요. 몇 시에 만날까요? 두 시에 영화관 앞에서 만나요.',
+    vi: 'Hai người hẹn thứ Bảy cùng xem phim, gặp lúc 2 giờ trước rạp chiếu phim.',
+    qs: [
+      { ...mc('Hai người hẹn nhau làm gì?', ['Xem phim', 'Ăn cơm', 'Học tiếng Hàn', 'Đi mua sắm'], '“같이 영화를 봅시다.”', { tag: 'listening' }), skill: 'listening' },
+      { ...mc('Họ gặp nhau lúc mấy giờ?', ['2 giờ', '12 giờ', '7 giờ', '10 giờ'], '“두 시에 … 만나요.”', { tag: 'listening', d: 2 }), skill: 'listening' },
+      { ...mc('Họ gặp nhau ở đâu?', ['Trước rạp chiếu phim', 'Ở nhà Sujin', 'Ở trường', 'Ở quán cà phê'], '“영화관 앞에서 만나요.”', { tag: 'listening', d: 2 }), skill: 'listening' },
+    ] },
+];
+
+/* ------------------------------ BÀI VIẾT (chấm theo tiêu chí) ------------------------------ */
+const WRITING = [
+  { prompt: 'Viết 2–3 câu tự giới thiệu: tên, quốc tịch, nghề nghiệp.', d: 1,
+    rubric: { min_len: 15, criteria: [
+      { label: 'Viết bằng chữ Hàn', kind: 'hangul', tip: 'Hãy dùng bàn phím tiếng Hàn hoặc bàn phím ảo bên dưới.' },
+      { label: 'Có nêu tên (저는 … / 제 이름은 …)', kind: 'anyOf', value: ['저는', '제 이름은'], tip: 'Mở đầu bằng 저는 + tên hoặc 제 이름은 + tên.' },
+      { label: 'Có nêu quốc tịch (… 사람)', kind: 'includes', value: '사람', tip: 'Quốc tịch = tên nước + 사람, ví dụ 베트남 사람.' },
+      { label: 'Dùng đuôi 이에요/예요 hoặc 입니다', kind: 'regex', value: '(이에요|예요|입니다)', tip: 'Kết thúc câu “là …” bằng 이에요/예요 hoặc 입니다.' },
+    ] },
+    reference: '안녕하세요? 저는 마이예요. 베트남 사람이에요. 회사원이에요.', expl: 'Một bài tự giới thiệu cơ bản gồm tên, quốc tịch, nghề nghiệp.' },
+  { prompt: 'Viết câu: “Tôi học tiếng Hàn ở thư viện.”', d: 1,
+    rubric: { min_len: 8, criteria: [
+      { label: 'Nơi chốn dùng 에서 (도서관에서)', kind: 'includes', value: '도서관에서', tip: 'Hành động diễn ra ở thư viện → 도서관에서.' },
+      { label: 'Tân ngữ dùng 를 (한국어를)', kind: 'includes', value: '한국어를', tip: '한국어 không có patchim → 한국어를.' },
+      { label: 'Động từ 공부하다 được chia đúng', kind: 'regex', value: '공부(해요|합니다)', tip: '공부하다 → 공부해요 / 공부합니다.' },
+    ] },
+    reference: '저는 도서관에서 한국어를 공부해요.', expl: 'Nơi chốn + 에서, tân ngữ + 을/를, động từ chia đuôi câu.' },
+  { prompt: 'Viết 2 câu kể việc bạn đã làm vào cuối tuần trước (dùng -았/었-).', d: 2,
+    rubric: { min_len: 12, criteria: [
+      { label: 'Viết bằng chữ Hàn', kind: 'hangul' },
+      { label: 'Có từ chỉ thời gian quá khứ (주말에 / 지난 주말에 / 어제)', kind: 'anyOf', value: ['주말에', '어제', '지난'], tip: 'Mở đầu bằng 지난 주말에 hoặc 주말에.' },
+      { label: 'Dùng thì quá khứ (-았/었/했-)', kind: 'regex', value: '(았|었|였|했)(어요|습니다)', tip: 'Ví dụ: 만났어요, 봤어요, 공부했어요.' },
+      { label: 'Có ít nhất 2 câu', kind: 'regex', value: '[.!?。].*\\S', tip: 'Ngắt câu bằng dấu chấm.' },
+    ] },
+    reference: '지난 주말에 친구를 만났어요. 같이 영화를 봤어요.', expl: 'Câu kể quá khứ dùng -았/었어요.' },
+  { prompt: 'Bạn đang ở nhà hàng. Viết câu nói bạn muốn ăn món gì (dùng -고 싶어요).', d: 2,
+    rubric: { min_len: 8, criteria: [
+      { label: 'Dùng -고 싶어요 / -고 싶습니다', kind: 'regex', value: '고 ?싶(어요|습니다)', tip: 'V + 고 싶어요, ví dụ 먹고 싶어요.' },
+      { label: 'Có tên một món ăn', kind: 'anyOf', value: ['비빔밥', '불고기', '냉면', '김치', '라면', '빵', '밥', '김밥', '떡볶이', '삼겹살'], tip: 'Thêm tên món: 비빔밥, 불고기, 냉면…' },
+      { label: 'Tân ngữ có 을/를', kind: 'regex', value: '(을|를) ', tip: 'Món ăn là tân ngữ: 비빔밥을, 냉면을.' },
+    ] },
+    reference: '저는 비빔밥을 먹고 싶어요.', expl: 'Mong muốn: V-고 싶어요.' },
+  { prompt: 'Viết câu phủ định: “Hôm nay tôi không đi học.”', d: 2,
+    rubric: { min_len: 6, criteria: [
+      { label: 'Có từ 오늘', kind: 'includes', value: '오늘', tip: 'Hôm nay = 오늘 (không thêm 에).' },
+      { label: 'Phủ định đúng (안 가요 / 가지 않아요)', kind: 'regex', value: '(안 가요|가지 않아요|안 갑니다|가지 않습니다)', tip: 'Dùng 안 가요 hoặc 가지 않아요.' },
+      { label: 'Có nơi đến 학교에', kind: 'includes', value: '학교에', tip: 'Đi đến trường → 학교에 가다.' },
+    ] },
+    reference: '오늘은 학교에 안 가요.', expl: '안 + động từ hoặc -지 않아요.' },
+];
+
+// Câu hỏi để minh hoạ quy trình xác minh: chưa xác minh đáp án nên KHÔNG vào đề thi chính thức
+const UNVERIFIED = [
+  { topic: 'G-CONN', ...mc('“Vì bận nên tôi không đi được.”', ['바빠서 못 가요.', '바쁘고 못 가요.', '바쁘지만 못 가요.'], '-아/어서 diễn tả lý do.'), status: 'review', verified: 0 },
+];
+
+// Đề thi chính thức: ma trận chủ đề × số câu
+const EXAMS = [
+  { title: 'Kiểm tra Nhập môn: Hangeul', description: 'Nhận mặt chữ, nghe âm tiết, patchim và nối âm.', level: 'intro', duration: 10, pass: 70, show_answers: 1,
+    matrix: [['H-VOW', 5], ['H-CON', 5], ['H-BAT', 5]] },
+  { title: 'Kiểm tra Sơ cấp 1 · Bài 1–3', description: 'Tự giới thiệu, trường học, sinh hoạt hằng ngày: từ vựng, tiểu từ, đuôi câu.', level: 'sc1', duration: 20, pass: 60, show_answers: 1,
+    matrix: [['V-INTRO', 3], ['V-SCHOOL', 3], ['V-DAILY', 3], ['G-COPULA', 3], ['G-TOPIC', 4], ['G-OBJ', 3], ['G-FORMAL', 3], ['L-SC1', 2], ['R-SC1', 1]] },
+  { title: 'Thi thử tổng hợp Sơ cấp 1', description: 'Toàn bộ kiến thức Sơ cấp 1: từ vựng, ngữ pháp, nghe, đọc.', level: 'sc1', duration: 35, pass: 60, show_answers: 1,
+    matrix: [['V-INTRO', 2], ['V-SCHOOL', 2], ['V-DAILY', 2], ['V-DATE', 2], ['V-FOOD', 2], ['V-FAMILY', 2], ['G-COPULA', 3], ['G-TOPIC', 3], ['G-OBJ', 3], ['G-LOC', 3], ['G-FORMAL', 2], ['G-POLITE', 3], ['G-NEG', 2], ['G-PAST', 3], ['G-WANT', 2], ['L-SC1', 2], ['R-SC1', 2]] },
+];
+
+module.exports = { LEVELS, TOPICS, LESSONS, VOCAB, VOWELS, CONSONANTS, VERBS, PARTICLE_SENTENCES, HAND, PASSAGES, WRITING, UNVERIFIED, EXAMS };
