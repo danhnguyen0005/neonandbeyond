@@ -164,7 +164,7 @@ function readFields(f) {
 async function deleteFlow(res, id, label) {
   const u = await api.get(`/admin/usage/${res}/${id}`);
   const usedAny = Object.values(u).some((n) => n > 0);
-  const detail = Object.entries(u).map(([k, n]) => `<li>${esc({ topics: 'Chủ đề', exams: 'Đề thi', questions: 'Câu hỏi', answers: 'Câu trả lời của học viên', learners: 'Học viên đã học', vocabulary: 'Từ vựng', srs_records: 'Bản ghi ôn tập', mistakes: 'Bản ghi câu sai', writings: 'Bài viết', attempts: 'Lượt thi' }[k] || k)}: <b>${n}</b></li>`).join('');
+  const detail = Object.entries(u).map(([k, n]) => `<li>${esc({ topics: 'Chủ đề', exams: 'Đề thi', questions: 'Câu hỏi', answers: 'Câu trả lời của học viên', learners: 'Học viên đã học', lessons: 'Bài học', grammar: 'Điểm ngữ pháp', passages: 'Bài đọc/nghe', vocabulary: 'Từ vựng', srs_records: 'Bản ghi ôn tập', mistakes: 'Bản ghi câu sai', writings: 'Bài viết', attempts: 'Lượt thi' }[k] || k)}: <b>${n}</b></li>`).join('');
   const ok = await confirmBox(usedAny ? 'Dữ liệu đang được sử dụng' : 'Xoá vĩnh viễn?',
     usedAny ? `<p>“${esc(label)}” đang được dùng trong lịch sử học tập:</p><ul>${detail}</ul><p>Để bảo toàn lịch sử, bản ghi sẽ được <b>lưu trữ (ẩn khỏi người học)</b> thay vì xoá. Có thể khôi phục sau.</p>` : `<p>“${esc(label)}” chưa được sử dụng ở đâu. Thao tác này không thể hoàn tác.</p>`,
     usedAny ? 'Lưu trữ' : 'Xoá', 'danger');

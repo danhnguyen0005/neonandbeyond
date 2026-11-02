@@ -3,7 +3,7 @@ const os = require('os'), path = require('path'), fs = require('fs');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hanngu-'));
 process.env.DB_FILE = path.join(tmp, 'test.db');
 process.env.ADMIN_PASSWORD = 'Admin@12345';
-const app = require('../server/index');
+const { app, ready } = require('../server/app');
 const { db } = require('../server/db');
 
 let pass = 0, fail = 0;
@@ -20,22 +20,23 @@ function client(base) {
   return { get: (u) => call('GET', u), post: (u, b) => call('POST', u, b || {}), put: (u, b) => call('PUT', u, b || {}), del: (u) => call('DELETE', u), raw: (m, u, b) => call(m, u, b, true) };
 }
 // Lấy đáp án đúng trực tiếp từ DB (mô phỏng người học trả lời đúng)
-function correctResponse(qid) {
-  const q = require('../server/engine').loadQuestion(qid);
+async function correctResponse(qid) {
+  const q = await require('../server/engine').loadQuestion(qid);
   if (['mcq', 'listen', 'error'].includes(q.type)) return { option: q.options.find((o) => o.is_correct).id };
   if (['fill', 'conjugate', 'translate'].includes(q.type)) return { text: q.answer.accepted[0] };
   if (q.type === 'order') return { words: q.answer.words };
   if (q.type === 'write') return { text: q.answer.reference };
 }
-function wrongResponse(qid) {
-  const q = require('../server/engine').loadQuestion(qid);
+async function wrongResponse(qid) {
+  const q = await require('../server/engine').loadQuestion(qid);
   if (['mcq', 'listen', 'error'].includes(q.type)) return { option: q.options.find((o) => !o.is_correct).id };
   if (q.type === 'order') return { words: [...q.answer.words].reverse() };
   return { text: 'zzz' };
 }
-const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(code).id;
+const topicId = async (code) => (await db.get('SELECT id FROM topics WHERE code=?', code)).id;
 
 (async () => {
+  await ready();
   const srv = app.listen(0); const base = `http://127.0.0.1:${srv.address().port}`;
   const A = client(base), B = client(base), ADM = client(base), ANON = client(base);
 
@@ -57,7 +58,7 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   let ov = (await A.get('/api/overview')).data;
   ok(ov.levels.length === 3 && ov.levels.every((l) => l.topics.every((t) => t.status === 'not_started')), 'người mới: mọi chủ đề “Chưa bắt đầu”');
   ok(ov.next && ov.next.code === 'H-VOW', 'đề xuất bài đầu tiên là Nguyên âm', ov.next);
-  const tTopic = topicId('G-TOPIC');
+  const tTopic = await topicId('G-TOPIC');
   await A.post(`/api/topics/${tTopic}/viewed`);
   const td = (await A.get(`/api/topics/${tTopic}`)).data;
   ok(td.status.status === 'in_progress' && td.lessons.length === 1 && td.grammar.length === 1, 'xem lý thuyết → “Đang học”');
@@ -65,15 +66,15 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   console.log('• Phiên luyện tập: xáo trộn, không trùng, chấm điểm, lưu tiến độ');
   const positions = [];
   let firstOrder = null, sameOrder = 0;
-  const tVocab = topicId('V-SCHOOL');
+  const tVocab = await topicId('V-SCHOOL');
   for (let k = 0; k < 6; k++) {
     const s = (await A.post('/api/sessions', { kind: 'topic', topic_id: k % 2 ? tTopic : tVocab, count: 10, fresh: true })).data;
-    const items = JSON.parse(db.prepare('SELECT items FROM practice_sessions WHERE id=?').get(s.id).items);
+    const items = JSON.parse((await db.get('SELECT items FROM practice_sessions WHERE id=?', s.id)).items);
     ok(new Set(items.map((i) => i.q)).size === items.length, 'không lặp câu trong một phiên');
     const ord = items.map((i) => i.q).join(',');
     if (k % 2) { if (firstOrder === null) firstOrder = ord; else if (ord === firstOrder) sameOrder++; }
     for (const it of items) {
-      const q = require('../server/engine').loadQuestion(it.q);
+      const q = await require('../server/engine').loadQuestion(it.q);
       if (q.options.length > 2 && !q.data.fixed_order) positions.push(it.o.findIndex((id) => q.options.find((o) => o.id === id).is_correct));
     }
   }
@@ -88,7 +89,7 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   let wrongQ = [];
   for (let i = 0; i < 4; i++) {
     const qid = s.question.id; const right = i !== 1;
-    const r = (await A.post(`/api/sessions/${sid}/answer`, { question_id: qid, response: right ? correctResponse(qid) : wrongResponse(qid) })).data;
+    const r = (await A.post(`/api/sessions/${sid}/answer`, { question_id: qid, response: right ? await correctResponse(qid) : await wrongResponse(qid) })).data;
     ok(r.result.correct === right, `chấm câu ${i + 1} (${right ? 'đúng' : 'sai'})`, r.result);
     ok(r.result.why && r.result.correct_answer, 'có giải thích và đáp án đúng');
     if (!right) wrongQ.push(qid);
@@ -100,13 +101,13 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   s = resumed;
   for (let i = 4; i < 10; i++) {
     const qid = s.question.id; const right = i % 4 !== 3;
-    const r = (await A.post(`/api/sessions/${sid}/answer`, { question_id: qid, response: right ? correctResponse(qid) : wrongResponse(qid) })).data;
+    const r = (await A.post(`/api/sessions/${sid}/answer`, { question_id: qid, response: right ? await correctResponse(qid) : await wrongResponse(qid) })).data;
     if (!right) wrongQ.push(qid);
     s = r.state;
   }
   ok(s.status === 'completed' && s.summary && s.summary.wrong_ids.length === wrongQ.length, 'kết thúc phiên có tổng kết và danh sách câu sai', s.summary && s.summary.wrong_ids);
   ok(s.answered === 10 && s.correct === 10 - wrongQ.length, 'đếm đúng/sai chính xác');
-  const tp = db.prepare('SELECT * FROM topic_progress WHERE topic_id=? AND user_id=(SELECT id FROM users WHERE username=?)').get(tTopic, 'hocvien_a');
+  const tp = (await db.get('SELECT * FROM topic_progress WHERE topic_id=? AND user_id=(SELECT id FROM users WHERE username=?)', tTopic, 'hocvien_a'));
   ok(tp.completed_at && tp.sessions_count === 1, 'hoàn thành bài được lưu');
   const st1 = (await A.get(`/api/topics/${tTopic}`)).data.status;
   ok(st1.completed_at && st1.mastery.level !== 'mastered', '“hoàn thành” khác “thành thạo”', st1.mastery.level);
@@ -117,44 +118,44 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   const mk = (await A.post('/api/sessions', { kind: 'mistakes' })).data;
   ok(mk.total === wrongQ.length, 'phiên ôn câu sai');
   let ms = mk;
-  while (ms.status === 'active') { const qid = ms.question.id; ms = (await A.post(`/api/sessions/${mk.id}/answer`, { question_id: qid, response: correctResponse(qid) })).data.state; }
+  while (ms.status === 'active') { const qid = ms.question.id; ms = (await A.post(`/api/sessions/${mk.id}/answer`, { question_id: qid, response: await correctResponse(qid) })).data.state; }
   rv = (await A.get('/api/review?state=tracking')).data;
   ok(rv.mistakes.length === wrongQ.length && rv.mistakes.every((m) => m.state === 'fixing' && !m.due), 'đúng một lần → “đang sửa”, hẹn kiểm tra lại, chưa xoá', rv.mistakes.map((m) => m.state));
   const det = (await A.get(`/api/mistakes/${wrongQ[0]}`)).data;
   ok(det.explanation !== undefined && det.history.length >= 2, 'xem chi tiết câu sai kèm lịch sử');
   // giả lập đã qua hạn kiểm tra rồi trả lời đúng lần 2 → khắc phục
-  db.prepare("UPDATE mistakes SET next_check_at=datetime('now','-1 minute') WHERE question_id=?").run(wrongQ[0]);
+  (await db.run("UPDATE mistakes SET next_check_at=datetime('now','-1 minute') WHERE question_id=?", wrongQ[0]));
   const rt = (await A.post('/api/sessions', { kind: 'retry', question_ids: [wrongQ[0]] })).data;
-  await A.post(`/api/sessions/${rt.id}/answer`, { question_id: wrongQ[0], response: correctResponse(wrongQ[0]) });
-  ok(db.prepare('SELECT state FROM mistakes WHERE question_id=?').get(wrongQ[0]).state === 'resolved', 'đúng lại sau thời hạn → đã khắc phục (vẫn lưu lịch sử)');
+  await A.post(`/api/sessions/${rt.id}/answer`, { question_id: wrongQ[0], response: await correctResponse(wrongQ[0]) });
+  ok((await db.get('SELECT state FROM mistakes WHERE question_id=?', wrongQ[0])).state === 'resolved', 'đúng lại sau thời hạn → đã khắc phục (vẫn lưu lịch sử)');
   ok((await A.post(`/api/mistakes/${wrongQ[1]}/understood`)).data.ok === true, 'đánh dấu đã hiểu');
 
   console.log('• Chấm điểm toàn ngân hàng (mọi dạng câu)');
-  const all = db.prepare("SELECT id,type FROM questions WHERE status='published'").all();
+  const all = (await db.all("SELECT id,type FROM questions WHERE status='published'"));
   const byType = {};
   const E = require('../server/engine');
   for (const q of all) {
-    const Q = E.loadQuestion(q.id);
-    const g = E.grade(Q, correctResponse(q.id)); const w = E.grade(Q, wrongResponse(q.id));
+    const Q = await E.loadQuestion(q.id);
+    const g = E.grade(Q, await correctResponse(q.id)); const w = E.grade(Q, await wrongResponse(q.id));
     byType[q.type] = byType[q.type] || { n: 0, bad: [] }; byType[q.type].n++;
     if (!g.correct || w.correct) byType[q.type].bad.push(Q.code);
     if (['mcq', 'listen', 'error'].includes(q.type) && Q.options.filter((o) => o.is_correct).length !== 1) byType[q.type].bad.push(Q.code + ':options');
   }
   for (const [t, v] of Object.entries(byType)) ok(v.bad.length === 0, `dạng ${t}: ${v.n} câu chấm đúng`, v.bad.slice(0, 5));
   // dung sai khoảng trắng / dấu câu khi tự nhập
-  const tq = E.loadQuestion(db.prepare("SELECT id FROM questions WHERE type='translate' AND code LIKE 'G-LOC-%'").get().id);
+  const tq = await E.loadQuestion((await db.get("SELECT id FROM questions WHERE type='translate' AND code LIKE 'G-LOC-%'")).id);
   ok(E.grade(tq, { text: '  식당에서  밥을 먹어요!! ' }).correct, 'tự nhập: bỏ qua khoảng trắng thừa và dấu câu cuối');
   ok(E.grade(tq, { text: '식당에 밥을 먹어요' }).choice_feedback, 'tự nhập sai phổ biến → có giải thích lỗi cụ thể');
-  const wq = E.loadQuestion(db.prepare("SELECT id FROM questions WHERE type='write' LIMIT 1").get().id);
+  const wq = await E.loadQuestion((await db.get("SELECT id FROM questions WHERE type='write' LIMIT 1")).id);
   const wg = E.grade(wq, { text: 'xin chao toi la Mai' });
   ok(!wg.correct && wg.rubric.some((r) => !r.ok && r.tip), 'bài viết không đạt → chỉ ra tiêu chí thiếu');
 
   console.log('• Thành thạo cần ≥2 phiên đạt ngưỡng');
-  const tObj = topicId('G-OBJ');
+  const tObj = await topicId('G-OBJ');
   for (let k = 0; k < 2; k++) {
     let ss = (await A.post('/api/sessions', { kind: 'topic', topic_id: tObj, count: 10, fresh: true })).data;
-    while (ss.status === 'active') { const qid = ss.question.id; ss = (await A.post(`/api/sessions/${ss.id}/answer`, { question_id: qid, response: correctResponse(qid) })).data.state; }
-    const lvl = E.computeMastery(db.prepare("SELECT id FROM users WHERE username='hocvien_a'").get().id, tObj).level;
+    while (ss.status === 'active') { const qid = ss.question.id; ss = (await A.post(`/api/sessions/${ss.id}/answer`, { question_id: qid, response: await correctResponse(qid) })).data.state; }
+    const lvl = (await E.computeMastery((await db.get("SELECT id FROM users WHERE username='hocvien_a'")).id, tObj)).level;
     ok(k === 0 ? lvl === 'basic' : lvl === 'mastered', `sau phiên ${k + 1}: ${lvl}`);
   }
   ok((await A.get(`/api/topics/${tObj}`)).data.status.status === 'mastered', 'trạng thái chủ đề “Đã thành thạo”');
@@ -163,7 +164,9 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   ok((await B.post('/api/sessions', { kind: 'mixed' })).status === 422, 'người mới chưa học gì → không tạo phiên tổng hợp mặc định');
   ok((await B.post('/api/sessions', { kind: 'challenge', count: 8 })).status === 200, 'chế độ thử thách cho phép kiến thức chưa học');
   const mx = (await A.post('/api/sessions', { kind: 'mixed', minutes: 5 })).data;
-  const mxTopics = JSON.parse(db.prepare('SELECT items FROM practice_sessions WHERE id=?').get(mx.id).items).map((i) => E.loadQuestion(i.q).topic_id);
+  const mxTopics0 = JSON.parse((await db.get('SELECT items FROM practice_sessions WHERE id=?', mx.id)).items);
+  const mxMap = await E.loadQuestions(mxTopics0.map((i) => i.q)); const mxTopicsL = mxTopics0.map((i) => mxMap.get(i.q).topic_id);
+  const mxTopics = mxTopicsL;
   ok(mx.total === 8 && mxTopics.every((t) => [tTopic, tObj].includes(t)), 'ôn 5 phút: 8 câu, chỉ từ chủ đề đã học', mxTopics);
   ok((await A.post('/api/sessions', { kind: 'errors' })).status === 200, 'ôn lỗi thường gặp');
   ok((await A.post('/api/sessions', { kind: 'similar', question_id: wrongQ[0] })).status === 200, 'luyện câu tương tự');
@@ -171,21 +174,22 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   ok((await B.get(`/api/sessions/${sid}`)).status === 404, 'B không xem được phiên của A');
 
   console.log('• Từ vựng & SRS');
-  const vt = topicId('V-INTRO');
+  const vt = await topicId('V-INTRO');
   await A.post(`/api/topics/${vt}/viewed`);
   let deck = (await A.get(`/api/vocab/deck?bucket=new`)).data;
   ok(deck.length === 20, 'từ mới trong chủ đề đã mở', deck.length);
   await A.post(`/api/vocab/${deck[0].id}/review`, { known: true });
   await A.post(`/api/vocab/${deck[1].id}/review`, { known: false });
-  ok(db.prepare('SELECT box FROM srs_records WHERE vocab_id=?').get(deck[0].id).box === 1, 'nhớ → lên hộp');
+  ok((await db.get('SELECT box FROM srs_records WHERE vocab_id=?', deck[0].id)).box === 1, 'nhớ → lên hộp');
   ok((await A.get('/api/vocab/deck?bucket=due')).data.some((v) => v.id === deck[1].id), 'chưa nhớ → đến hạn ôn ngay');
 
   console.log('• Thi thử');
   let ex = (await A.get('/api/exams')).data;
   ok(ex.official.length === 3 && ex.official.every((e) => e.question_count > 0), 'có 3 đề chính thức');
   const e1 = ex.official[0];
-  const unv = db.prepare("SELECT id FROM questions WHERE verified=0").all().map((x) => x.id);
-  ok(ex.official.every((e) => !JSON.parse(db.prepare('SELECT question_ids FROM mock_exams WHERE id=?').get(e.id).question_ids).some((id) => unv.includes(id))), 'đề chính thức không chứa câu chưa xác minh');
+  const unv = (await db.all("SELECT id FROM questions WHERE verified=0")).map((x) => x.id);
+  const offQ = await db.all("SELECT question_ids FROM mock_exams WHERE kind='official'");
+  ok(offQ.every((e) => !JSON.parse(e.question_ids).some((id) => unv.includes(id))), 'đề chính thức không chứa câu chưa xác minh');
   let at = (await A.post(`/api/exams/${e1.id}/start`)).data;
   ok(at.status === 'in_progress' && at.questions.length === e1.question_count, 'bắt đầu thi');
   ok(at.questions.every((q) => q.options === undefined || q.options.every((o) => o.is_correct === undefined)), 'đề thi không lộ đáp án');
@@ -194,7 +198,7 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   const half = Math.floor(at.questions.length / 2);
   for (let i = 0; i < at.questions.length - 2; i++) {
     const q = at.questions[i];
-    await A.put(`/api/attempts/${at.id}/answer`, { question_id: q.id, response: i < half ? correctResponse(q.id) : wrongResponse(q.id) });
+    await A.put(`/api/attempts/${at.id}/answer`, { question_id: q.id, response: i < half ? await correctResponse(q.id) : await wrongResponse(q.id) });
   }
   await A.put(`/api/attempts/${at.id}/flag`, { question_id: at.questions[0].id, flagged: true });
   const mid = (await A.get(`/api/attempts/${at.id}`)).data;
@@ -207,27 +211,27 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   // hết giờ → tự nộp
   const at2 = (await A.post(`/api/exams/${e1.id}/start`)).data;
   ok(at2.id !== at.id, 'lượt mới sau khi nộp');
-  await A.put(`/api/attempts/${at2.id}/answer`, { question_id: at2.questions[0].id, response: correctResponse(at2.questions[0].id) });
-  db.prepare("UPDATE exam_attempts SET deadline_at=datetime('now','-5 minutes') WHERE id=?").run(at2.id);
+  await A.put(`/api/attempts/${at2.id}/answer`, { question_id: at2.questions[0].id, response: await correctResponse(at2.questions[0].id) });
+  (await db.run("UPDATE exam_attempts SET deadline_at=datetime('now','-5 minutes') WHERE id=?", at2.id));
   ok((await A.put(`/api/attempts/${at2.id}/answer`, { question_id: at2.questions[1].id, response: {} })).status === 409, 'hết giờ → từ chối lưu');
   const r2 = (await A.get(`/api/attempts/${at2.id}`)).data;
   ok(r2.status === 'auto_submitted' && r2.correct === 1, 'hết giờ → tự động nộp với câu đã lưu', { st: r2.status, c: r2.correct });
   const at3 = (await A.post(`/api/exams/${e1.id}/start`)).data;
   ok((await A.post(`/api/attempts/${at3.id}/abandon`)).data.ok, 'huỷ lượt thi');
-  ok(db.prepare('SELECT score FROM exam_attempts WHERE id=?').get(at3.id).score === null, 'lượt huỷ không bị tính điểm');
+  ok((await db.get('SELECT score FROM exam_attempts WHERE id=?', at3.id)).score === null, 'lượt huỷ không bị tính điểm');
 
   console.log('• Tạo đề ngẫu nhiên');
   const big = await A.post('/api/exams/generate', { topic_ids: [tTopic], count: 60 });
   ok(big.status === 422 && big.data.available > 0, 'không đủ câu → báo rõ số câu có thể tạo', big.data);
-  const sc1 = db.prepare("SELECT id FROM levels WHERE code='sc1'").get().id;
+  const sc1 = (await db.get("SELECT id FROM levels WHERE code='sc1'")).id;
   const g1 = (await A.post('/api/exams/generate', { level_id: sc1, count: 30, difficulty: 'mixed' })).data;
-  const ids1 = JSON.parse(db.prepare('SELECT question_ids FROM mock_exams WHERE id=?').get(g1.id).question_ids);
-  const perTopic = {}; ids1.forEach((id) => { const t = E.loadQuestion(id).topic_id; perTopic[t] = (perTopic[t] || 0) + 1; });
+  const ids1 = JSON.parse((await db.get('SELECT question_ids FROM mock_exams WHERE id=?', g1.id)).question_ids);
+  const perTopic = {}; const m1 = await E.loadQuestions(ids1); ids1.forEach((id) => { const t = m1.get(id).topic_id; perTopic[t] = (perTopic[t] || 0) + 1; });
   ok(ids1.length === 30 && new Set(ids1).size === 30, 'đề 30 câu, không trùng');
   ok(Math.max(...Object.values(perTopic)) <= 3, 'không chủ đề nào chiếm quá nhiều câu', perTopic);
   ok(!ids1.some((id) => unv.includes(id)), 'đề tự tạo không chứa câu chưa xác minh');
   const g2 = (await A.post('/api/exams/generate', { level_id: sc1, count: 30, difficulty: 'mixed' })).data;
-  const ids2 = JSON.parse(db.prepare('SELECT question_ids FROM mock_exams WHERE id=?').get(g2.id).question_ids);
+  const ids2 = JSON.parse((await db.get('SELECT question_ids FROM mock_exams WHERE id=?', g2.id)).question_ids);
   ok(ids1.filter((x) => ids2.includes(x)).length < 15, 'hai đề tạo liên tiếp khác nhau');
   ok((await B.get(`/api/exams/${g1.id}`)).status === 404, 'B không mở được đề tự tạo của A');
 
@@ -251,12 +255,14 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   ok(lsess.question && lsess.question.id === nq.data.id, 'người học luyện được câu vừa xuất bản');
   const ed = (await ADM.put(`/api/admin/questions/${nq.data.id}`, { options: [{ text: '가요', is_correct: false }, { text: '가아요', is_correct: true }] })).data;
   ok(ed.verified === 0 && ed.status === 'review', 'đổi đáp án → phải xác minh lại');
-  const pubIds = db.prepare("SELECT id FROM questions WHERE code LIKE 'G-TOPIC-%' LIMIT 1").get().id;
+  const pubIds = (await db.get('SELECT question_id id FROM user_answers LIMIT 1')).id;
   const del = (await ADM.del(`/api/admin/questions/${pubIds}`)).data;
-  ok(del.archived && del.usage.answers >= 0, 'xoá câu đã dùng → lưu trữ, không xoá cứng', del);
-  ok(db.prepare('SELECT COUNT(*) n FROM user_answers WHERE question_id=?').get(pubIds).n >= 0 && db.prepare('SELECT archived FROM questions WHERE id=?').get(pubIds).archived === 1, 'lịch sử học tập được bảo toàn');
+  ok(del.archived && del.usage.answers > 0, 'xoá câu đã dùng → lưu trữ, không xoá cứng', del);
+  ok((await db.get('SELECT COUNT(*) n FROM user_answers WHERE question_id=?', pubIds)).n >= 0 && (await db.get('SELECT archived FROM questions WHERE id=?', pubIds)).archived === 1, 'lịch sử học tập được bảo toàn');
   ok((await ADM.get('/api/admin/questions?q=가요&type=mcq')).data.total >= 1, 'tìm kiếm & lọc câu hỏi');
   ok(Array.isArray((await ADM.get('/api/admin/questions/duplicates')).data), 'quét trùng lặp');
+  const draft = await ADM.post('/api/admin/questions', { ...qBody, prompt: 'Câu nháp để xoá', status: 'draft' });
+  ok((await ADM.del(`/api/admin/questions/${draft.data.id}`)).data.deleted === true, 'xoá hẳn câu chưa dùng (kèm phương án)');
 
   console.log('• Quản trị đề thi');
   const ne = (await ADM.post('/api/admin/exams', { title: 'Đề kiểm thử', level_id: sc1, matrix: [{ topic_id: tTopic, count: 5 }, { topic_id: tObj, count: 5 }], duration_min: 10, pass_score: 50, show_answers: true })).data;
@@ -271,7 +277,7 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   console.log('• Báo cáo & người dùng (luồng 7)');
   const rep = (await ADM.get('/api/admin/reports')).data;
   ok(rep.users.accounts === 2 && rep.users.active_learners === 1 && rep.users.visited === 2, 'phân biệt đăng ký / truy cập / thực sự học', rep.users);
-  ok(rep.activity.answers === db.prepare("SELECT COUNT(*) n FROM user_answers").get().n, 'số câu trả lời khớp dữ liệu');
+  ok(rep.activity.answers === (await db.get("SELECT COUNT(*) n FROM user_answers")).n, 'số câu trả lời khớp dữ liệu');
   const csv = await ADM.raw('GET', '/api/admin/reports/export?type=topics');
   const buf = Buffer.from(await csv.arrayBuffer());
   ok(csv.status === 200 && buf[0] === 0xef && buf[1] === 0xbb && buf.toString('utf8').includes('Chủ đề'), 'xuất CSV (UTF-8 có BOM cho Excel)');
@@ -283,16 +289,16 @@ const topicId = (code) => db.prepare('SELECT id FROM topics WHERE code=?').get(c
   await ADM.put(`/api/admin/users/${bId}/status`, { status: 'locked' });
   ok((await B.get('/api/overview')).status === 401, 'khoá tài khoản → mất phiên đăng nhập');
   ok((await B.post('/api/auth/login', { username: 'hocvien_b', password: 'matkhau123' })).status === 403, 'tài khoản bị khoá không đăng nhập được');
-  const admId = db.prepare("SELECT id FROM users WHERE username='admin'").get().id;
+  const admId = (await db.get("SELECT id FROM users WHERE username='admin'")).id;
   ok((await ADM.put(`/api/admin/users/${admId}/status`, { status: 'locked' })).status === 400, 'admin không tự khoá mình');
   ok((await ADM.get('/api/admin/logs')).data.length > 5, 'nhật ký thao tác quản trị');
   ok((await ADM.put('/api/admin/settings', { mastery: { mastered_min_accuracy: 1.5 } })).status === 400, 'cài đặt sai giá trị bị từ chối');
   ok((await ADM.put('/api/admin/settings', { mastery: { mastered_min_sessions: 3 } })).status === 200, 'đổi ngưỡng thành thạo');
-  ok(E.computeMastery(db.prepare("SELECT id FROM users WHERE username='hocvien_a'").get().id, tObj).level === 'basic', 'ngưỡng mới áp dụng ngay (cần 3 phiên)');
+  ok((await E.computeMastery((await db.get("SELECT id FROM users WHERE username='hocvien_a'")).id, tObj)).level === 'basic', 'ngưỡng mới áp dụng ngay (cần 3 phiên)');
 
   console.log('• Dashboard người học');
   const dash = (await A.get('/api/progress')).data;
-  const nAns = db.prepare("SELECT COUNT(*) n FROM user_answers WHERE user_id=(SELECT id FROM users WHERE username='hocvien_a')").get().n;
+  const nAns = (await db.get("SELECT COUNT(*) n FROM user_answers WHERE user_id=(SELECT id FROM users WHERE username='hocvien_a')")).n;
   ok(dash.summary.answers === nAns && dash.summary.topics_completed >= 2, 'số liệu dashboard tính từ dữ liệu thật', dash.summary);
   ok(dash.errors.length > 0 && dash.attempts.length >= 2 && dash.map.length > 20, 'phân tích lỗi, lịch sử thi, bản đồ kiến thức');
   ok(dash.attempts.some((a) => a.delta !== null), 'so sánh tiến bộ giữa các lần thi');

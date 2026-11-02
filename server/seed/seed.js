@@ -1,6 +1,6 @@
 // Nạp học liệu khởi tạo vào DB (chỉ chạy khi DB còn trống).
 const crypto = require('crypto');
-const { db } = require('../db');
+const { db, SCHEMA } = require('../db');
 const C = require('./content');
 const { hashPassword } = require('../auth');
 const { generateExamQuestions } = require('../engine');
@@ -18,11 +18,19 @@ const batchim = (word) => { const c = word.trim().slice(-1).charCodeAt(0); retur
 const SKILL = { hangul: 'hangul', vocab: 'vocab', grammar: 'grammar', listening: 'listening', reading: 'reading', writing: 'writing' };
 const TAG = { hangul: 'spelling', vocab: 'vocab', grammar: 'grammar', listening: 'listening', reading: 'reading', writing: 'writing' };
 
-function run({ log = console.log } = {}) {
-  if (db.prepare('SELECT COUNT(*) n FROM levels').get().n > 0) return false;
+function build(log) {
+  // Gom câu lệnh với id gán sẵn, ghi theo lô (nhanh trên cơ sở dữ liệu từ xa)
+  const W = [], seq = {};
+  const P = (sql) => ({ run: (...args) => {
+    const table = sql.match(/INSERT INTO (\w+)/)[1];
+    const id = (seq[table] = (seq[table] || 0) + 1);
+    W.push([sql.replace(/INSERT INTO (\w+)\(/, 'INSERT INTO $1(id,').replace(/VALUES \(/, 'VALUES (?,'), [id, ...args]]);
+    return { lastInsertRowid: id };
+  } });
   const topicId = {}, topicGrp = {}, counters = {};
-  const insQ = db.prepare(`INSERT INTO questions(code,topic_id,type,prompt,data,answer,explanation,skill,error_tag,difficulty,status,verified) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
-  const insO = db.prepare('INSERT INTO question_options(question_id,text,is_correct,feedback,sort) VALUES (?,?,?,?,?)');
+  let adminPassGenerated = null;
+  const insQ = P(`INSERT INTO questions(code,topic_id,type,prompt,data,answer,explanation,skill,error_tag,difficulty,status,verified) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
+  const insO = P('INSERT INTO question_options(question_id,text,is_correct,feedback,sort) VALUES (?,?,?,?,?)');
 
   function addQ(topicCode, kind, q) {
     const grp = topicGrp[topicCode];
@@ -50,21 +58,21 @@ function run({ log = console.log } = {}) {
     throw new Error('unknown type ' + h.type);
   }
 
-  const tx = db.transaction(() => {
+  {
     // Levels, topics, lessons
     const lv = {};
-    C.LEVELS.forEach((l, i) => { lv[l.code] = db.prepare('INSERT INTO levels(code,name,description,goal,sort) VALUES (?,?,?,?,?)').run(l.code, l.name, l.description, l.goal, i).lastInsertRowid; });
+    C.LEVELS.forEach((l, i) => { lv[l.code] = P('INSERT INTO levels(code,name,description,goal,sort) VALUES (?,?,?,?,?)').run(l.code, l.name, l.description, l.goal, i).lastInsertRowid; });
     C.TOPICS.forEach((t, i) => {
-      topicId[t.code] = db.prepare('INSERT INTO topics(code,level_id,grp,name,description,source,sort,mastery_rules) VALUES (?,?,?,?,?,?,?,?)')
+      topicId[t.code] = P('INSERT INTO topics(code,level_id,grp,name,description,source,sort,mastery_rules) VALUES (?,?,?,?,?,?,?,?)')
         .run(t.code, lv[t.level], t.grp, t.name, t.description, t.source, i, t.rules ? JSON.stringify(t.rules) : null).lastInsertRowid;
       topicGrp[t.code] = t.grp;
       const ls = C.LESSONS[t.code];
-      if (ls) db.prepare('INSERT INTO lessons(topic_id,title,goal,body) VALUES (?,?,?,?)').run(topicId[t.code], ls.title, ls.goal, JSON.stringify(ls.body));
+      if (ls) P('INSERT INTO lessons(topic_id,title,goal,body) VALUES (?,?,?,?)').run(topicId[t.code], ls.title, ls.goal, JSON.stringify(ls.body));
     });
     // Grammar points (một điểm ngữ pháp chính cho mỗi chủ đề ngữ pháp, lấy từ bài học)
     C.TOPICS.filter((t) => t.grp === 'grammar').forEach((t) => {
       const b = C.LESSONS[t.code].body;
-      db.prepare('INSERT INTO grammar_points(topic_id,pattern,meaning,formula,explanation,examples,mistakes,compare) VALUES (?,?,?,?,?,?,?,?)')
+      P('INSERT INTO grammar_points(topic_id,pattern,meaning,formula,explanation,examples,mistakes,compare) VALUES (?,?,?,?,?,?,?,?)')
         .run(topicId[t.code], C.LESSONS[t.code].title, t.description, b.formula, b.explain, JSON.stringify(b.examples), JSON.stringify(b.mistakes), b.compare);
     });
 
@@ -94,7 +102,7 @@ function run({ log = console.log } = {}) {
 
     // Từ vựng
     for (const [tcode, words] of Object.entries(C.VOCAB)) {
-      const ids = words.map(([ko, vi]) => db.prepare('INSERT INTO vocabulary(topic_id,ko,vi) VALUES (?,?,?)').run(topicId[tcode], ko, vi).lastInsertRowid);
+      const ids = words.map(([ko, vi]) => P('INSERT INTO vocabulary(topic_id,ko,vi) VALUES (?,?,?)').run(topicId[tcode], ko, vi).lastInsertRowid);
       const vis = words.map((w) => w[1]), kos = words.map((w) => w[0]);
       const listenTopic = C.TOPICS.find((t) => t.code === tcode).level === 'sc1' ? 'L-SC1' : tcode;
       words.forEach(([ko, vi], i) => {
@@ -165,7 +173,7 @@ function run({ log = console.log } = {}) {
     for (const [tcode, list] of Object.entries(C.HAND)) { if (!topicId[tcode]) continue; list.forEach((h) => addHand(tcode, h)); }
     // Bài đọc / nghe
     C.PASSAGES.forEach((p) => {
-      const pid = db.prepare('INSERT INTO passages(topic_id,kind,title,ko_text,vi_text) VALUES (?,?,?,?,?)').run(topicId[p.topic], p.kind, p.title, p.ko, p.vi).lastInsertRowid;
+      const pid = P('INSERT INTO passages(topic_id,kind,title,ko_text,vi_text) VALUES (?,?,?,?,?)').run(topicId[p.topic], p.kind, p.title, p.ko, p.vi).lastInsertRowid;
       p.qs.forEach((h) => addHand(p.topic, { ...h, skill: h.skill || (p.kind === 'listening' ? 'listening' : 'reading') }, { passage_id: pid, group: 'p' + pid + '-' + h.prompt.length }));
     });
     // Viết
@@ -176,26 +184,53 @@ function run({ log = console.log } = {}) {
     // Tài khoản quản trị
     const adminUser = process.env.ADMIN_USERNAME || 'admin';
     const adminPass = process.env.ADMIN_PASSWORD || crypto.randomBytes(9).toString('base64url');
-    db.prepare("INSERT INTO users(username,display_name,password_hash,role) VALUES (?,?,?,'admin')").run(adminUser, 'Quản trị viên', hashPassword(adminPass));
-    if (!process.env.ADMIN_PASSWORD) log(`\n  Tài khoản quản trị đã được tạo:\n    Tên đăng nhập: ${adminUser}\n    Mật khẩu:      ${adminPass}\n  (Đặt biến môi trường ADMIN_PASSWORD trước lần chạy đầu để tự chọn mật khẩu.)\n`);
-  });
-  tx();
+    adminPassGenerated = process.env.ADMIN_PASSWORD ? null : adminPass;
+    P("INSERT INTO users(username,display_name,password_hash,role) VALUES (?,?,?,'admin')").run(adminUser, 'Quản trị viên', hashPassword(adminPass));
+  }
+  return { W, topicId, adminPassGenerated };
+}
 
+
+async function run({ log = console.log } = {}) {
+  await db.exec(SCHEMA);
+  const done = async () => (await db.get("SELECT COUNT(*) n FROM settings WHERE key='seed_done'")).n > 0;
+  if (await done()) return false;
+  const hasLevels = (await db.get('SELECT COUNT(*) n FROM levels')).n > 0;
+  const lock = await db.get("SELECT value FROM settings WHERE key='seed_lock'");
+  if (hasLevels && !lock) { await db.run("INSERT INTO settings(key,value) VALUES ('seed_done', datetime('now'))"); return false; } // DB tạo từ phiên bản cũ
+  // Lần nạp trước bị ngắt giữa chừng (khoá cũ hơn 3 phút mà chưa xong): xoá phần nạp dở rồi nạp lại.
+  // Chỉ xảy ra khi chưa nạp xong lần nào, nên chưa có dữ liệu học viên.
+  if (lock && (await db.get("SELECT ? < datetime('now','-3 minutes') old", lock.value)).old) {
+    log('Phát hiện lần nạp dữ liệu trước bị ngắt. Đang nạp lại…');
+    await db.batch(['question_options', 'questions', 'passages', 'grammar_points', 'vocabulary', 'lessons', 'mock_exams', 'topics', 'levels']
+      .map((t) => [`DELETE FROM ${t}`]).concat([["DELETE FROM users WHERE role='admin'"], ["DELETE FROM settings WHERE key='seed_lock'"]]));
+  }
+  // Khoá: chỉ một tiến trình được nạp dữ liệu (tránh trùng khi nhiều máy chủ khởi động cùng lúc)
+  try { await db.run("INSERT INTO settings(key,value) VALUES ('seed_lock', datetime('now'))"); }
+  catch {
+    for (let i = 0; i < 55; i++) { await new Promise((r) => setTimeout(r, 1000)); if (await done()) return false; }
+    throw new Error('Cơ sở dữ liệu đang được khởi tạo, hãy tải lại trang sau ít phút.');
+  }
+  const { W, topicId, adminPassGenerated } = build(log);
+  for (let i = 0; i < W.length; i += 400) await db.batch(W.slice(i, i + 400));
+  const adminUser = process.env.ADMIN_USERNAME || 'admin';
+  if (adminPassGenerated) log(`\n  Tài khoản quản trị đã được tạo:\n    Tên đăng nhập: ${adminUser}\n    Mật khẩu:      ${adminPassGenerated}\n  (Đặt biến môi trường ADMIN_PASSWORD trước lần chạy đầu để tự chọn mật khẩu.)\n`);
   // Đề thi chính thức (sinh sau khi ngân hàng câu hỏi đã có)
-  const adminId = db.prepare("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1").get().id;
-  C.EXAMS.forEach((e) => {
+  const adminId = (await db.get("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1")).id;
+  for (const e of C.EXAMS) {
     const matrix = e.matrix.map(([code, count]) => ({ topic_id: topicId[code], count }));
-    const gen = generateExamQuestions({ matrix, types: ['mcq', 'listen', 'error', 'order', 'fill', 'conjugate', 'translate'] });
+    const gen = await generateExamQuestions({ matrix, types: ['mcq', 'listen', 'error', 'order', 'fill', 'conjugate', 'translate'] });
     if (gen.problems.length) log('Cảnh báo ma trận đề', e.title, gen.problems);
-    const lvl = db.prepare('SELECT id FROM levels WHERE code=?').get(e.level).id;
-    db.prepare(`INSERT INTO mock_exams(title,description,kind,level_id,scope,matrix,question_ids,duration_min,pass_score,show_answers,status,created_by)
-      VALUES (?,?,'official',?,?,?,?,?,?,?,'published',?)`).run(e.title, e.description, lvl, e.matrix.map((m) => m[0]).join(', '),
+    const lvl = (await db.get('SELECT id FROM levels WHERE code=?', e.level)).id;
+    await db.run(`INSERT INTO mock_exams(title,description,kind,level_id,scope,matrix,question_ids,duration_min,pass_score,show_answers,status,created_by)
+      VALUES (?,?,'official',?,?,?,?,?,?,?,'published',?)`, e.title, e.description, lvl, e.matrix.map((m) => m[0]).join(', '),
       JSON.stringify(matrix), JSON.stringify(gen.ids), e.duration, e.pass, e.show_answers, adminId);
-  });
-  const n = db.prepare('SELECT COUNT(*) n FROM questions').get().n;
+  }
+  await db.run("INSERT INTO settings(key,value) VALUES ('seed_done', datetime('now'))");
+  const n = (await db.get('SELECT COUNT(*) n FROM questions')).n;
   log(`Đã nạp học liệu: ${C.TOPICS.length} chủ đề, ${n} câu hỏi, ${C.EXAMS.length} đề thi.`);
   return true;
 }
 
 module.exports = { run };
-if (require.main === module) run();
+if (require.main === module) run().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

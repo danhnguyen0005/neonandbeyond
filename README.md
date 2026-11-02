@@ -1,36 +1,60 @@
-# Hàn Ngữ Sơ Cấp — web học tiếng Hàn (Node.js + SQLite)
+# Hàn Ngữ Sơ Cấp — web học tiếng Hàn (Node.js + libSQL/Turso)
 
 Phạm vi kiến thức bám theo lộ trình bộ *Tiếng Hàn tổng hợp dành cho người Việt Nam – Sơ cấp 1, 2*.
 Toàn bộ câu ví dụ, giải thích và câu hỏi trong `server/seed/content.js` là nội dung biên soạn mới, không sao chép từ sách.
 
-## Chạy thử
+## Triển khai lên Vercel (GitHub → Vercel)
 
-Yêu cầu: Node.js 18 trở lên.
+Vercel không lưu được file trên máy chủ, nên dữ liệu được đặt ở **Turso** (cơ sở dữ liệu tương thích SQLite, có gói miễn phí).
+
+1. Tạo database trên https://turso.tech, lấy **Database URL** (`libsql://…`) và **Auth Token**.
+2. Trên Vercel: **Add New → Project → Import** repo GitHub này. Framework Preset để **Other**, không cần đổi Build/Output (đã cấu hình trong `vercel.json`).
+3. Ở **Environment Variables**, thêm:
+
+   | Key | Value |
+   |---|---|
+   | `TURSO_DATABASE_URL` | URL dạng `libsql://…turso.io` |
+   | `TURSO_AUTH_TOKEN` | token của Turso |
+   | `ADMIN_PASSWORD` | mật khẩu cho tài khoản quản trị `admin` |
+
+4. Bấm **Deploy**. Lần truy cập đầu tiên, hệ thống tự tạo bảng và nạp học liệu (khoảng 10–30 giây), sau đó trang chạy bình thường.
+5. Đăng nhập trang quản trị tại `https://<tên-miền>/admin` bằng `admin` / mật khẩu đã đặt.
+
+Lưu ý:
+- `ADMIN_PASSWORD` chỉ được dùng ở lần khởi tạo dữ liệu đầu tiên. Đổi biến này sau đó không đổi mật khẩu.
+- Không đưa token vào code hay commit. Nếu token từng bị lộ, tạo token mới trên Turso rồi cập nhật lại biến môi trường trên Vercel.
+- Mỗi lần đẩy code mới lên nhánh `main`, Vercel tự deploy lại. Dữ liệu trên Turso được giữ nguyên.
+
+## Chạy thử trên máy
+
+Yêu cầu: Node.js 20 trở lên. Khi không có `TURSO_DATABASE_URL`, dữ liệu được lưu ở file `data/hanngu.db`.
 
 ```bash
 npm install
 ADMIN_PASSWORD='MatKhauManh@2026' npm start      # Windows PowerShell: $env:ADMIN_PASSWORD='...'; npm start
 ```
 
-Mở http://localhost:3000, đăng ký tài khoản học viên.
-Trang quản trị: http://localhost:3000/admin (tài khoản `admin`, mật khẩu là giá trị `ADMIN_PASSWORD` đã đặt ở lần chạy đầu tiên).
+Mở http://localhost:3000, đăng ký tài khoản học viên. Trang quản trị: http://localhost:3000/admin.
 Nếu không đặt `ADMIN_PASSWORD`, mật khẩu ngẫu nhiên sẽ được in ra cửa sổ dòng lệnh ở lần chạy đầu tiên.
 
 | Lệnh | Tác dụng |
 |---|---|
-| `npm start` | Chạy server (lần đầu tự tạo DB `data/hanngu.db` và nạp học liệu) |
-| `npm test` | Chạy 124 kiểm thử API trên một DB tạm |
-| `npm run reset` | Xoá DB và nạp lại học liệu từ đầu |
+| `npm start` | Chạy server (lần đầu tự tạo bảng và nạp học liệu) |
+| `npm test` | Chạy 125 kiểm thử API trên một DB tạm |
+| `npm run reset` | Xoá DB cục bộ và nạp lại học liệu từ đầu |
 | `node tests/ui.smoke.js` | Kiểm thử giao diện bằng Chromium (cần `npm i -D playwright` và server đang chạy) |
 
-Biến môi trường: `PORT` (mặc định 3000), `DB_FILE`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `NODE_ENV=production` (bật cookie Secure khi chạy sau HTTPS), `TRUST_PROXY=1` (khi đặt sau Nginx/Cloudflare).
+Biến môi trường khác: `PORT` (mặc định 3000), `DB_FILE`, `ADMIN_USERNAME`, `TRUST_PROXY=1` (khi đặt sau Nginx).
 
 ## Cấu trúc
 
 ```
+api/index.js    Điểm vào cho Vercel (serverless function)
+vercel.json     Cấu hình Vercel: định tuyến /api, /admin; header bảo mật
 server/
-  index.js      Khởi động Express, header bảo mật, định tuyến, tự nộp bài thi hết giờ
-  db.js         Lược đồ SQLite (22 bảng)
+  app.js        Ứng dụng Express dùng chung: header bảo mật, định tuyến, tự khởi tạo dữ liệu, trang quản trị có kiểm tra quyền
+  index.js      Chạy cục bộ + tự nộp bài thi hết giờ
+  db.js         Kết nối libSQL (file cục bộ hoặc Turso) + lược đồ (23 bảng)
   auth.js       Băm mật khẩu scrypt, phiên cookie httpOnly, phân quyền, chống CSRF, giới hạn đăng nhập sai, nhật ký quản trị
   engine.js     Chấm điểm, mức thành thạo, SRS từ vựng, theo dõi câu sai, chọn & xáo trộn câu hỏi, sinh đề
   learner.js    API học viên (lộ trình, chủ đề, phiên luyện tập, ôn tập, thi thử, tiến độ)
@@ -46,7 +70,7 @@ public/
   js/ime.js        Bàn phím tiếng Hàn trên màn hình + bộ ghép âm tiết
   js/question.js   Hiển thị 8 dạng câu hỏi và phản hồi
   js/views/        learn (lộ trình, trung tâm luyện tập, chủ đề) · session (luyện tập, thẻ ghi nhớ) · review · exams · progress
-  admin/           Trang quản trị
+server/admin-ui/   Trang quản trị (chỉ trả về cho tài khoản admin)
 tests/  api.test.js · ui.smoke.js
 ```
 
@@ -61,10 +85,9 @@ tests/  api.test.js · ui.smoke.js
 
 ## Triển khai thật
 
-1. Máy chủ Linux có Node 18+ → `npm ci --omit=dev` → chạy bằng pm2/systemd với `NODE_ENV=production`.
-2. Đặt Nginx (hoặc Caddy) phía trước với HTTPS và `TRUST_PROXY=1`.
-3. Sao lưu định kỳ file `data/hanngu.db` (SQLite ở chế độ WAL).
-4. Khi số người dùng lớn hoặc cần chạy nhiều máy chủ: chuyển sang PostgreSQL (các truy vấn là SQL chuẩn; cần thay `better-sqlite3` và một số hàm `json_*`, `datetime`), và chuyển bộ đếm đăng nhập sai sang Redis.
+- **Vercel + Turso:** xem mục đầu. Sao lưu: Turso có tính năng khôi phục theo thời điểm (point-in-time) tuỳ gói.
+- **Máy chủ riêng (VPS):** Node 20+ → `npm ci --omit=dev` → chạy bằng pm2/systemd với `NODE_ENV=production`, đặt Nginx/Caddy có HTTPS phía trước và `TRUST_PROXY=1`. Có thể dùng file cục bộ hoặc Turso.
+- Trên Vercel, lượt thi hết giờ được tự nộp khi người học quay lại hoặc khi mở danh sách đề (không có tác vụ chạy nền).
 
 ## Giới hạn hiện tại
 
@@ -74,3 +97,4 @@ tests/  api.test.js · ui.smoke.js
 - Nội dung chi tiết hiện có cho Nhập môn và phần lớn Sơ cấp 1; Sơ cấp 2 mới có 3 chủ đề mẫu. Thêm chủ đề, câu hỏi và đề thi trong trang quản trị.
 - Chưa có đề mô phỏng TOPIK; đề hiện tại là đề nội bộ theo ma trận chủ đề.
 - Chưa có quên mật khẩu qua email, đăng nhập Google, hay ứng dụng di động gốc.
+- Mỗi thao tác trên Vercel phải gọi sang Turso qua mạng, nên chậm hơn chạy cục bộ một chút. Nên chọn vùng (region) của Vercel gần vùng database Turso (database hiện ở Tokyo `aws-ap-northeast-1` → chọn vùng Vercel `hnd1`).
