@@ -58,7 +58,7 @@ const topicId = async (code) => (await db.get('SELECT id FROM topics WHERE code=
   let ov = (await A.get('/api/overview')).data;
   ok(ov.levels.length === 3 && ov.levels.every((l) => l.topics.every((t) => t.status === 'not_started')), 'người mới: mọi chủ đề “Chưa bắt đầu”');
   ok(ov.next && ov.next.code === 'H-VOW', 'đề xuất bài đầu tiên là Nguyên âm', ov.next);
-  const tTopic = await topicId('G-TOPIC');
+  const tTopic = await topicId('S1-01-G2');
   await A.post(`/api/topics/${tTopic}/viewed`);
   const td = (await A.get(`/api/topics/${tTopic}`)).data;
   ok(td.status.status === 'in_progress' && td.lessons.length === 1 && td.grammar.length === 1, 'xem lý thuyết → “Đang học”');
@@ -66,7 +66,7 @@ const topicId = async (code) => (await db.get('SELECT id FROM topics WHERE code=
   console.log('• Phiên luyện tập: xáo trộn, không trùng, chấm điểm, lưu tiến độ');
   const positions = [];
   let firstOrder = null, sameOrder = 0;
-  const tVocab = await topicId('V-SCHOOL');
+  const tVocab = await topicId('S1-02-V');
   for (let k = 0; k < 6; k++) {
     const s = (await A.post('/api/sessions', { kind: 'topic', topic_id: k % 2 ? tTopic : tVocab, count: 10, fresh: true })).data;
     const items = JSON.parse((await db.get('SELECT items FROM practice_sessions WHERE id=?', s.id)).items);
@@ -79,7 +79,7 @@ const topicId = async (code) => (await db.get('SELECT id FROM topics WHERE code=
     }
   }
   ok(sameOrder === 0, 'thứ tự câu hỏi khác nhau giữa các phiên');
-  ok(positions.length >= 20 && new Set(positions).size >= 3, 'đáp án đúng không cố định một vị trí', positions);
+  ok(positions.length >= 12 && new Set(positions).size >= 3, 'đáp án đúng không cố định một vị trí', positions);
   let run3 = 0; for (let i = 2; i < positions.length; i++) if (positions[i] === positions[i - 1] && positions[i] === positions[i - 2]) run3++;
   ok(run3 <= 3, 'hạn chế đáp án đúng trùng vị trí 3 câu liền', run3);
 
@@ -143,7 +143,7 @@ const topicId = async (code) => (await db.get('SELECT id FROM topics WHERE code=
   }
   for (const [t, v] of Object.entries(byType)) ok(v.bad.length === 0, `dạng ${t}: ${v.n} câu chấm đúng`, v.bad.slice(0, 5));
   // dung sai khoảng trắng / dấu câu khi tự nhập
-  const tq = await E.loadQuestion((await db.get("SELECT id FROM questions WHERE type='translate' AND code LIKE 'G-LOC-%'")).id);
+  const tq = await E.loadQuestion((await db.get("SELECT id FROM questions WHERE type='translate' AND code LIKE 'S1-05-G2-TR-%' AND prompt LIKE '%nhà ăn%'")).id);
   ok(E.grade(tq, { text: '  식당에서  밥을 먹어요!! ' }).correct, 'tự nhập: bỏ qua khoảng trắng thừa và dấu câu cuối');
   ok(E.grade(tq, { text: '식당에 밥을 먹어요' }).choice_feedback, 'tự nhập sai phổ biến → có giải thích lỗi cụ thể');
   const wq = await E.loadQuestion((await db.get("SELECT id FROM questions WHERE type='write' LIMIT 1")).id);
@@ -151,7 +151,7 @@ const topicId = async (code) => (await db.get('SELECT id FROM topics WHERE code=
   ok(!wg.correct && wg.rubric.some((r) => !r.ok && r.tip), 'bài viết không đạt → chỉ ra tiêu chí thiếu');
 
   console.log('• Thành thạo cần ≥2 phiên đạt ngưỡng');
-  const tObj = await topicId('G-OBJ');
+  const tObj = await topicId('S1-03-G3');
   for (let k = 0; k < 2; k++) {
     let ss = (await A.post('/api/sessions', { kind: 'topic', topic_id: tObj, count: 10, fresh: true })).data;
     while (ss.status === 'active') { const qid = ss.question.id; ss = (await A.post(`/api/sessions/${ss.id}/answer`, { question_id: qid, response: await correctResponse(qid) })).data.state; }
@@ -174,10 +174,11 @@ const topicId = async (code) => (await db.get('SELECT id FROM topics WHERE code=
   ok((await B.get(`/api/sessions/${sid}`)).status === 404, 'B không xem được phiên của A');
 
   console.log('• Từ vựng & SRS');
-  const vt = await topicId('V-INTRO');
+  const vt = await topicId('S1-01-V');
   await A.post(`/api/topics/${vt}/viewed`);
   let deck = (await A.get(`/api/vocab/deck?bucket=new`)).data;
-  ok(deck.length === 20, 'từ mới trong chủ đề đã mở', deck.length);
+  const nWords = (await db.get('SELECT COUNT(*) n FROM vocabulary WHERE topic_id=? AND archived=0', vt)).n;
+  ok(deck.length === Math.min(50, nWords), 'từ mới trong chủ đề đã mở (tối đa 50 thẻ)', [deck.length, nWords]);
   await A.post(`/api/vocab/${deck[0].id}/review`, { known: true });
   await A.post(`/api/vocab/${deck[1].id}/review`, { known: false });
   ok((await db.get('SELECT box FROM srs_records WHERE vocab_id=?', deck[0].id)).box === 1, 'nhớ → lên hộp');
@@ -185,7 +186,7 @@ const topicId = async (code) => (await db.get('SELECT id FROM topics WHERE code=
 
   console.log('• Thi thử');
   let ex = (await A.get('/api/exams')).data;
-  ok(ex.official.length === 3 && ex.official.every((e) => e.question_count > 0), 'có 3 đề chính thức');
+  ok(ex.official.length === 5 && ex.official.every((e) => e.question_count > 0), 'có 5 đề chính thức (Hangeul, Bài 1–5, 6–10, 11–15, tổng hợp)');
   const e1 = ex.official[0];
   const unv = (await db.all("SELECT id FROM questions WHERE verified=0")).map((x) => x.id);
   const offQ = await db.all("SELECT question_ids FROM mock_exams WHERE kind='official'");

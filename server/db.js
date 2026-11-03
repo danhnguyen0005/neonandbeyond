@@ -42,18 +42,18 @@ CREATE TABLE IF NOT EXISTS activity_days (user_id INTEGER NOT NULL REFERENCES us
 CREATE TABLE IF NOT EXISTS levels (id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, description TEXT, goal TEXT, sort INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS topics (id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE, level_id INTEGER NOT NULL REFERENCES levels(id),
   grp TEXT NOT NULL CHECK (grp IN ('hangul','vocab','grammar','listening','reading','writing')), name TEXT NOT NULL, description TEXT, source TEXT,
-  sort INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0, mastery_rules TEXT);
-CREATE TABLE IF NOT EXISTS lessons (id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL REFERENCES topics(id), title TEXT NOT NULL, goal TEXT, body TEXT NOT NULL DEFAULT '{}', sort INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0);
-CREATE TABLE IF NOT EXISTS vocabulary (id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL REFERENCES topics(id), ko TEXT NOT NULL, vi TEXT NOT NULL, note TEXT, archived INTEGER NOT NULL DEFAULT 0);
+  sort INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0, mastery_rules TEXT, unit INTEGER, seed_hash TEXT);
+CREATE TABLE IF NOT EXISTS lessons (id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL REFERENCES topics(id), title TEXT NOT NULL, goal TEXT, body TEXT NOT NULL DEFAULT '{}', sort INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0, seed_hash TEXT);
+CREATE TABLE IF NOT EXISTS vocabulary (id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL REFERENCES topics(id), ko TEXT NOT NULL, vi TEXT NOT NULL, note TEXT, archived INTEGER NOT NULL DEFAULT 0, seed_hash TEXT);
 CREATE TABLE IF NOT EXISTS grammar_points (id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL REFERENCES topics(id), pattern TEXT NOT NULL, meaning TEXT, formula TEXT, explanation TEXT,
-  examples TEXT NOT NULL DEFAULT '[]', mistakes TEXT NOT NULL DEFAULT '[]', compare TEXT, archived INTEGER NOT NULL DEFAULT 0);
-CREATE TABLE IF NOT EXISTS passages (id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL REFERENCES topics(id), kind TEXT NOT NULL CHECK (kind IN ('reading','listening')), title TEXT NOT NULL, ko_text TEXT NOT NULL, vi_text TEXT, archived INTEGER NOT NULL DEFAULT 0);
+  examples TEXT NOT NULL DEFAULT '[]', mistakes TEXT NOT NULL DEFAULT '[]', compare TEXT, archived INTEGER NOT NULL DEFAULT 0, seed_hash TEXT);
+CREATE TABLE IF NOT EXISTS passages (id INTEGER PRIMARY KEY, topic_id INTEGER NOT NULL REFERENCES topics(id), kind TEXT NOT NULL CHECK (kind IN ('reading','listening')), title TEXT NOT NULL, ko_text TEXT NOT NULL, vi_text TEXT, archived INTEGER NOT NULL DEFAULT 0, seed_hash TEXT);
 CREATE TABLE IF NOT EXISTS questions (id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE, topic_id INTEGER NOT NULL REFERENCES topics(id),
   type TEXT NOT NULL CHECK (type IN ('mcq','listen','fill','conjugate','order','translate','error','write')), prompt TEXT NOT NULL,
   data TEXT NOT NULL DEFAULT '{}', answer TEXT NOT NULL DEFAULT '{}', explanation TEXT NOT NULL DEFAULT '',
   skill TEXT NOT NULL CHECK (skill IN ('hangul','vocab','grammar','listening','reading','writing')), error_tag TEXT NOT NULL DEFAULT 'grammar',
   difficulty INTEGER NOT NULL DEFAULT 1 CHECK (difficulty BETWEEN 1 AND 3), status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','review','published','hidden')),
-  verified INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
+  verified INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), seed_hash TEXT);
 CREATE TABLE IF NOT EXISTS question_options (id INTEGER PRIMARY KEY, question_id INTEGER NOT NULL REFERENCES questions(id), text TEXT NOT NULL, is_correct INTEGER NOT NULL DEFAULT 0, feedback TEXT, sort INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS ix_q_topic ON questions(topic_id, status);
 CREATE INDEX IF NOT EXISTS ix_opt_q ON question_options(question_id);
@@ -91,10 +91,20 @@ CREATE TABLE IF NOT EXISTS admin_logs (id INTEGER PRIMARY KEY, admin_id INTEGER 
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 `;
 
+// Nâng cấp DB cũ: thêm cột còn thiếu (an toàn khi chạy lặp lại)
+const MIGRATE_COLS = [['topics', 'unit', 'INTEGER'], ['topics', 'seed_hash', 'TEXT'], ['lessons', 'seed_hash', 'TEXT'], ['grammar_points', 'seed_hash', 'TEXT'],
+  ['vocabulary', 'seed_hash', 'TEXT'], ['passages', 'seed_hash', 'TEXT'], ['questions', 'seed_hash', 'TEXT']];
+async function migrate() {
+  for (const [t, c, type] of MIGRATE_COLS) {
+    const cols = await db.all(`PRAGMA table_info(${t})`);
+    if (!cols.some((x) => x.name === c)) await db.run(`ALTER TABLE ${t} ADD COLUMN ${c} ${type}`);
+  }
+}
+
 const J = (s, d) => { if (s == null) return d; try { return JSON.parse(s); } catch { return d; } };
 const nowIso = () => new Date().toISOString().replace('T', ' ').slice(0, 19); // cùng định dạng datetime('now') (UTC)
 const addDays = (d) => new Date(Date.now() + d * 86400000).toISOString().replace('T', ' ').slice(0, 19);
 const today = () => new Date().toISOString().slice(0, 10);
 const qs = (n) => Array(n).fill('?').join(',');
 
-module.exports = { db, client, SCHEMA, J, nowIso, addDays, today, qs };
+module.exports = { db, client, SCHEMA, migrate, J, nowIso, addDays, today, qs };

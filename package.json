@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server/index.js",
     "reset": "node -e \"require('fs').rmSync('data',{recursive:true,force:true})\" && node server/seed/seed.js",
-    "test": "node tests/api.test.js"
+    "test": "node tests/korean.test.js && node tests/api.test.js"
   },
   "engines": {
     "node": ">=20"

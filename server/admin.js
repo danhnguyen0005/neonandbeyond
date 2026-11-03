@@ -22,7 +22,7 @@ r.get('/meta', async (req, res) => res.json({
 /* ---------------- Học liệu: CRUD chung ---------------- */
 const RES = {
   levels: { table: 'levels', fields: ['code', 'name', 'description', 'goal', 'sort'], required: ['code', 'name'] },
-  topics: { table: 'topics', fields: ['code', 'level_id', 'grp', 'name', 'description', 'source', 'sort', 'mastery_rules'], required: ['code', 'level_id', 'grp', 'name'], json: ['mastery_rules'] },
+  topics: { table: 'topics', fields: ['code', 'level_id', 'grp', 'name', 'description', 'source', 'unit', 'sort', 'mastery_rules'], required: ['code', 'level_id', 'grp', 'name'], json: ['mastery_rules'] },
   lessons: { table: 'lessons', fields: ['topic_id', 'title', 'goal', 'body', 'sort'], required: ['topic_id', 'title'], json: ['body'] },
   vocabulary: { table: 'vocabulary', fields: ['topic_id', 'ko', 'vi', 'note'], required: ['topic_id', 'ko', 'vi'] },
   grammar: { table: 'grammar_points', fields: ['topic_id', 'pattern', 'meaning', 'formula', 'explanation', 'examples', 'mistakes', 'compare'], required: ['topic_id', 'pattern'], json: ['examples', 'mistakes'] },
@@ -63,6 +63,7 @@ for (const [name, cfg] of Object.entries(RES)) {
     const out = {};
     for (const f of cfg.fields) if (body[f] !== undefined) out[f] = (cfg.json || []).includes(f) && typeof body[f] !== 'string' ? JSON.stringify(body[f]) : body[f];
     if (isCreate) for (const f of cfg.required) if (out[f] === undefined || out[f] === '' || out[f] === null) return { error: `Thiếu trường bắt buộc: ${f}` };
+    if (out.unit !== undefined) { if (out.unit === '' || out.unit === null) out.unit = null; else if (!Number.isInteger(Number(out.unit)) || Number(out.unit) < 0) return { error: 'Bài số phải là số nguyên.' }; else out.unit = Number(out.unit); }
     if (out.grp && !SKILLS.includes(out.grp)) return { error: 'Nhóm kiến thức không hợp lệ.' };
     if (out.kind && !['reading', 'listening'].includes(out.kind)) return { error: 'Loại bài không hợp lệ.' };
     return { out };

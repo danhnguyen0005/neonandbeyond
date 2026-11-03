@@ -36,8 +36,20 @@ export async function overview(root, ctx) {
       <div class="stack tight" style="min-width:220px"><div class="row between small"><span>Tiến độ học</span><b class="num">${lv.completed}/${lv.total} chủ đề</b></div>${bar(lv.progress)}
       <div class="row between small"><span>Thành thạo</span><b class="num">${lv.mastered}/${lv.total}</b></div>${bar(lv.mastery_rate, 'indigo')}</div></div><div></div></section>`);
     const list = sec.lastElementChild;
-    lv.topics.forEach((t) => list.append(h(`<a class="trow" href="#/topic/${t.id}">${gicon(t.grp)}<div style="min-width:0"><div class="tn">${esc(t.name)}</div><div class="small muted">${esc(t.description || '')}</div></div>
-      <div class="side-r">${statusChip(t.status, t.status_label)}<div style="width:130px">${bar(t.completion)}</div><span class="small faint">${t.completion}% · ${esc(t.mastery_label)}</span></div></a>`)));
+    const row = (t) => `<a class="trow" href="#/topic/${t.id}">${gicon(t.grp)}<div style="min-width:0"><div class="tn">${esc(t.name)}</div><div class="small muted">${esc(t.description || '')}</div></div>
+      <div class="side-r">${statusChip(t.status, t.status_label)}<div style="width:130px">${bar(t.completion)}</div><span class="small faint">${t.completion}% · ${esc(t.mastery_label)}</span></div></a>`;
+    // Cấp độ chia theo bài (Bài 1 … Bài 15): mỗi bài là một khối thu gọn được
+    const units = [...new Set(lv.topics.filter((t) => t.unit != null).map((t) => t.unit))].sort((a, b) => a - b);
+    lv.topics.filter((t) => t.unit == null).forEach((t) => list.append(h(row(t))));
+    const openUnit = (d.next && d.next.level_id === lv.id && d.next.unit) || units.find((u) => lv.topics.some((t) => t.unit === u && !t.completed_at));
+    units.forEach((u) => {
+      const ts = lv.topics.filter((t) => t.unit === u);
+      const done = ts.filter((t) => t.completed_at).length, mast = ts.filter((t) => t.mastery === 'mastered').length;
+      const det = h(`<details class="unit"${u === openUnit ? ' open' : ''}><summary><div class="stack tight" style="min-width:0"><b>${esc(ts[0].source || 'Bài ' + u)}</b>
+        <span class="small muted">${ts.length} chủ đề · đã học ${done} · thành thạo ${mast}</span></div><div class="row" style="gap:10px"><div style="width:110px">${bar(ts.length ? (done / ts.length) * 100 : 0)}</div>${ICON.chev}</div></summary><div></div></details>`);
+      ts.forEach((t) => det.lastElementChild.append(h(row(t))));
+      list.append(det);
+    });
     root.append(sec);
   }
 }
@@ -45,24 +57,28 @@ export async function overview(root, ctx) {
 /* ------------------------------ TRUNG TÂM LUYỆN TẬP ------------------------------ */
 export async function practiceCenter(root) {
   const d = await api.get('/practice-center');
-  let grp = store.get('pc:grp', 'all'), lvl = store.get('pc:lvl', 'all');
+  let grp = store.get('pc:grp', 'all'), lvl = store.get('pc:lvl', 'all'), unit = store.get('pc:unit', 'all');
   const levels = [...new Set(d.groups.flatMap((g) => g.topics.map((t) => t.level_name)))];
+  const unitSrc = new Map(); d.groups.flatMap((g) => g.topics).forEach((t) => { if (t.unit != null && !unitSrc.has(t.unit)) unitSrc.set(t.unit, t.source); });
+  const units = [...unitSrc.keys()].sort((a, b) => a - b);
   root.append(h(`<div class="head"><div class="stack tight"><span class="eyebrow">Trung tâm luyện tập</span><h1>Chọn chủ đề để luyện</h1>
     <p class="muted">Chủ đề sắp theo nhóm kiến thức và cấp độ. Mỗi thẻ cho biết trạng thái học, tỷ lệ hoàn thành và mức thành thạo.</p></div></div>`));
   const filt = h(`<div class="row between"><div class="seg" role="tablist" aria-label="Nhóm kiến thức"><button data-g="all">Tất cả</button>${d.groups.map((g) => `<button data-g="${g.grp}">${esc(GROUP[g.grp].label.split(' · ')[0])}</button>`).join('')}</div>
-    <select class="input" style="width:auto" aria-label="Cấp độ"><option value="all">Mọi cấp độ</option>${levels.map((l) => `<option>${esc(l)}</option>`).join('')}</select></div>`);
+    <div class="row"><select class="input" style="width:auto" aria-label="Cấp độ" data-f="lvl"><option value="all">Mọi cấp độ</option>${levels.map((l) => `<option>${esc(l)}</option>`).join('')}</select>
+    ${units.length ? `<select class="input" style="width:auto;max-width:260px" aria-label="Bài" data-f="unit"><option value="all">Mọi bài</option>${units.map((u) => `<option value="${u}">${esc(unitSrc.get(u) || 'Bài ' + u)}</option>`).join('')}</select>` : ''}</div></div>`);
   root.append(filt);
   const body = h('<div class="stack" style="gap:26px"></div>'); root.append(body);
   const draw = () => {
     $$('.seg button', filt).forEach((b) => b.classList.toggle('on', b.dataset.g === grp));
-    $('select', filt).value = lvl;
+    $('[data-f=lvl]', filt).value = lvl;
+    const us = $('[data-f=unit]', filt); if (us) us.value = unit;
     body.innerHTML = '';
     d.groups.filter((g) => grp === 'all' || g.grp === grp).forEach((g) => {
-      const ts = g.topics.filter((t) => lvl === 'all' || t.level_name === lvl);
+      const ts = g.topics.filter((t) => (lvl === 'all' || t.level_name === lvl) && (unit === 'all' || String(t.unit) === String(unit)));
       if (!ts.length) return;
       const sec = h(`<section class="stack"><div class="row">${gicon(g.grp)}<h2>${esc(g.label)}</h2><span class="faint small">${ts.length} chủ đề</span></div><div class="grid auto"></div></section>`);
       ts.forEach((t) => sec.lastElementChild.append(h(`<a class="tcard g-${t.grp}" href="#/topic/${t.id}">
-        <div class="meta"><span>${esc(t.level_name)}</span>${statusChip(t.status, t.status_label)}</div>
+        <div class="meta"><span>${esc(t.unit != null ? 'Bài ' + t.unit : t.level_name)}</span>${statusChip(t.status, t.status_label)}</div>
         <div class="tt">${esc(t.name)}</div><div class="small muted" style="flex:1">${esc(t.description || '')}</div>
         <div class="stack tight"><div class="row between small"><span>Hoàn thành</span><b class="num">${t.completion}%</b></div>${bar(t.completion)}</div>
         <div class="meta">${masteryChip(t.mastery, t.mastery_label)}<span>${t.total_questions} câu hỏi</span></div></a>`)));
@@ -71,7 +87,8 @@ export async function practiceCenter(root) {
     if (!body.children.length) body.append(h('<div class="card empty"><span class="glyph">빈</span><p>Không có chủ đề nào khớp bộ lọc.</p></div>'));
   };
   filt.addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (b) { grp = b.dataset.g; store.set('pc:grp', grp); draw(); } });
-  $('select', filt).onchange = (e) => { lvl = e.target.value; store.set('pc:lvl', lvl); draw(); };
+  $('[data-f=lvl]', filt).onchange = (e) => { lvl = e.target.value; store.set('pc:lvl', lvl); draw(); };
+  const usel = $('[data-f=unit]', filt); if (usel) usel.onchange = (e) => { unit = e.target.value; store.set('pc:unit', unit); draw(); };
   draw();
 }
 
@@ -80,14 +97,25 @@ const VOW = [['ㅏ', 'a', '아'], ['ㅑ', 'ya', '야'], ['ㅓ', 'eo', '어'], ['
 const CON = [['ㄱ', 'g/k', '가'], ['ㄴ', 'n', '나'], ['ㄷ', 'd/t', '다'], ['ㄹ', 'r/l', '라'], ['ㅁ', 'm', '마'], ['ㅂ', 'b/p', '바'], ['ㅅ', 's', '사'], ['ㅇ', '—/ng', '아'], ['ㅈ', 'j', '자'], ['ㅊ', 'ch', '차'], ['ㅋ', 'kh', '카'], ['ㅌ', 'th', '타'], ['ㅍ', 'ph', '파'], ['ㅎ', 'h', '하'], ['ㄲ', 'kk', '까'], ['ㄸ', 'tt', '따'], ['ㅃ', 'pp', '빠'], ['ㅆ', 'ss', '싸'], ['ㅉ', 'jj', '짜']];
 const jamoChart = (list) => `<div class="jamo-grid">${list.map(([c, r, s]) => `<button type="button" class="jamo" data-say="${s}"><b>${c}</b><span>${r}</span></button>`).join('')}</div>`;
 
+const vcell = (v) => `<div class="vcell"><div><div class="k">${esc(v.ko)}</div><div class="v">${esc(v.vi)}</div></div>
+  <span class="boxdots" title="${v.box == null ? 'Chưa học' : 'Mức ghi nhớ ' + v.box + '/6'}">${[1, 2, 3, 4, 5, 6].map((i) => `<i class="${v.box >= i ? 'f' : ''}"></i>`).join('')}</span>${speakBtn(v.ko)}</div>`;
+// Từ vựng chia theo nhóm (cột note) nếu có
+function vocabGroups(list) {
+  const groups = []; const idx = new Map();
+  list.forEach((v) => { const k = v.note || ''; if (!idx.has(k)) { idx.set(k, groups.length); groups.push([k, []]); } groups[idx.get(k)][1].push(v); });
+  if (groups.length === 1) return `<div class="vgrid">${list.map(vcell).join('')}</div>`;
+  return groups.map(([k, vs]) => `<div class="stack tight" style="margin-top:8px"><span class="small"><b>${esc(k || 'Khác')}</b> <span class="faint">· ${vs.length} từ</span></span><div class="vgrid">${vs.map(vcell).join('')}</div></div>`).join('');
+}
+
 export function knowledgeBlock(d) {
   const t = d.topic;
   const wrap = h('<div class="stack"></div>');
   for (const l of d.lessons) {
     const b = l.body || {};
     wrap.append(h(`<div class="stack">
+      ${d.lessons.length > 1 ? `<h3>${esc(l.title)}</h3>` : ''}
       ${l.goal ? `<div class="callout info"><b>Mục tiêu:</b> <span class="ink">${esc(l.goal)}</span></div>` : ''}
-      ${b.explain ? `<p>${esc(b.explain)}</p>` : ''}
+      ${b.explain ? b.explain.split('\n\n').map((p) => `<p>${esc(p)}</p>`).join('') : ''}
       ${b.formula ? `<div class="stack tight"><span class="lbl">Công thức</span><div class="formula">${esc(b.formula)}</div></div>` : ''}
       ${b.examples && b.examples.length ? `<div class="stack tight"><span class="lbl">Ví dụ</span><div class="ex">${b.examples.map((e) => `${speakBtn(e[0].split(' → ')[0])}<span class="k">${esc(e[0])}</span><span class="v">${esc(e[1])}</span>`).join('')}</div></div>` : ''}
       ${b.mistakes && b.mistakes.length ? `<div class="stack tight"><span class="lbl">Lỗi thường gặp</span><ul class="mist" style="margin:0;padding-left:20px">${b.mistakes.map((m) => `<li class="ko">${esc(m)}</li>`).join('')}</ul></div>` : ''}
@@ -98,8 +126,7 @@ export function knowledgeBlock(d) {
   if (t.code === 'H-CON') wrap.append(h(`<div class="stack tight"><span class="lbl">Bảng phụ âm — bấm để nghe</span>${jamoChart(CON)}</div>`));
   if (d.vocab && d.vocab.length) {
     wrap.append(h(`<div class="stack tight"><div class="row between"><span class="lbl">Từ vựng (${d.vocab.length})</span><a class="btn sm" href="#/flash?bucket=topic&topic=${t.id}">Học bằng thẻ ghi nhớ</a></div>
-      <div class="vgrid">${d.vocab.map((v) => `<div class="vcell"><div><div class="k">${esc(v.ko)}</div><div class="v">${esc(v.vi)}</div></div>
-      <span class="boxdots" title="${v.box == null ? 'Chưa học' : 'Mức ghi nhớ ' + v.box + '/6'}">${[1, 2, 3, 4, 5, 6].map((i) => `<i class="${v.box >= i ? 'f' : ''}"></i>`).join('')}</span>${speakBtn(v.ko)}</div>`).join('')}</div></div>`));
+      ${vocabGroups(d.vocab)}</div>`));
   }
   if (d.passages && d.passages.length) {
     d.passages.forEach((p) => wrap.append(h(`<details class="card flat know"><summary><b>${esc(p.title)}</b>${ICON.chev}</summary><div class="stack" style="margin-top:10px"><div class="passage">${esc(p.ko_text)}</div><div class="row">${speakBtn(p.ko_text)}<span class="small muted">${esc(p.vi_text || '')}</span></div></div></details>`)));

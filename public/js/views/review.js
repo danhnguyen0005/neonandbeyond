@@ -42,9 +42,9 @@ export async function reviewPage(root, ctx, params) {
       <p class="small muted">Thời lượng là ước tính (khoảng 30–40 giây mỗi câu). Kết quả sẽ hiển thị thời gian thực tế bạn đã dùng.</p>
       <div class="grid g3">${[5, 10, 15].map((m) => `<button class="card flat stack" style="cursor:pointer;text-align:left" data-min="${m}"><b style="font-size:22px">${m} phút</b><span class="small muted">khoảng ${{ 5: 8, 10: 15, 15: 22 }[m]} câu tổng hợp</span></button>`).join('')}</div>
       <div class="grid g3">
-        <div class="stack tight"><span class="lbl">Ôn một chủ đề</span><div class="row"><select class="input" data-topic style="flex:1;width:auto">${data.topics.map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><button class="btn" data-gt>Ôn</button></div></div>
+        <div class="stack tight"><span class="lbl">Ôn một chủ đề</span><div class="row"><select class="input" data-topic style="flex:1;min-width:0;width:100%">${data.topics.map((t) => `<option value="${t.id}">${esc(t.name)}</option>`).join('')}</select><button class="btn" data-gt>Ôn</button></div></div>
         <div class="stack tight"><span class="lbl">Ôn lỗi thường gặp</span><button class="btn" data-ge>Ôn nhóm lỗi tôi hay mắc</button></div>
-        <div class="stack tight"><span class="lbl">Ôn trước kỳ thi</span><div class="row"><select class="input" data-lv style="flex:1;width:auto">${data.levels.map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join('')}</select><button class="btn" data-gx>Ôn</button></div></div>
+        <div class="stack tight"><span class="lbl">Ôn trước kỳ thi</span><div class="row"><select class="input" data-lv style="flex:1;min-width:0;width:100%">${data.levels.map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join('')}</select><button class="btn" data-gx>Ôn</button></div></div>
       </div><p class="small faint">Câu sai đang theo dõi: ${mc.tracking || 0} · đến hạn: ${mc.due || 0} · đã khắc phục: ${mc.resolved || 0}</p></div>`);
     goals.addEventListener('click', (e) => { const b = e.target.closest('[data-min]'); if (b) start({ kind: 'mixed', minutes: Number(b.dataset.min) }); });
     $('[data-gt]', goals).onclick = () => start({ kind: 'topic', topic_id: Number($('[data-topic]', goals).value), count: 10, fresh: true });

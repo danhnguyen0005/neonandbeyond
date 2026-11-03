@@ -15,7 +15,7 @@ async function topicsWithStatus(uid) {
   const st = await E.topicStatusMany(uid, topics);
   return topics.map((t) => {
     const s = st.get(t.id);
-    return { id: t.id, code: t.code, name: t.name, description: t.description, grp: t.grp, level_id: t.level_id, level_name: t.level_name, source: t.source,
+    return { id: t.id, code: t.code, name: t.name, description: t.description, grp: t.grp, level_id: t.level_id, level_name: t.level_name, source: t.source, unit: t.unit,
       status: s.status, status_label: s.status_label, completion: s.completion, mastery: s.mastery.level, mastery_label: s.mastery.label,
       accuracy: s.mastery.recent_accuracy, answered: s.mastery.answered, due_mistakes: s.due_mistakes, due_vocab: s.due_vocab,
       total_questions: s.total_questions, completed_at: iso(s.completed_at), last_practiced_at: iso(s.last_practiced_at) };
